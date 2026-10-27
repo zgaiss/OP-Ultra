@@ -1,0 +1,11 @@
+package com.shilapi.xcertplay;
+import android.app.Activity;import android.os.*;import com.heavendoor.ultralab.*;import java.lang.reflect.*;import java.util.function.BooleanSupplier;import java.io.*;import org.json.*;
+/** DEBUG ONLY: actual Android abstract-socket release/rebind regression. No vehicle APIs. */
+public final class UltraSocketFixtureActivity extends Activity {
+ private final JSONObject result=new JSONObject();private Object server;private Constructor<?> ctor;private Method close,status;private UltraDashboardView view;
+ private void write(String name,String text)throws Exception{try(FileOutputStream f=new FileOutputStream(new File(getFilesDir(),name))){f.write(text.getBytes("UTF-8"));}}
+ private Object open()throws Exception{Object s=ctor.newInstance(view,(BooleanSupplier)()->false);long end=SystemClock.elapsedRealtime()+2000;while(!"listening".equals(status.invoke(s))&&SystemClock.elapsedRealtime()<end)Thread.sleep(20);if(!"listening".equals(status.invoke(s)))throw new AssertionError("bind not ready "+status.invoke(s));return s;}
+ @Override public void onCreate(Bundle b){super.onCreate(b);try{view=new UltraDashboardView(this);Class<?> c=Class.forName("com.heavendoor.ultralab.UltraFrameServer");ctor=c.getDeclaredConstructor(UltraDashboardView.class,BooleanSupplier.class);ctor.setAccessible(true);close=c.getMethod("close");close.setAccessible(true);status=c.getDeclaredMethod("status");status.setAccessible(true);
+  new Thread(()->{try{for(int i=0;i<8;i++){Object s=open();close.invoke(s);}result.put("idleAcceptCloseRebind8",true);server=open();write("socket-phase.txt","PEER1_READY");Thread.sleep(4000);close.invoke(server);server=open();write("socket-phase.txt","PEER2_READY");Thread.sleep(4000);close.invoke(server);server=open();close.invoke(server);result.put("activePeerReleaseRebind",true);result.put("allPassed",true);write("socket-fixture.json",result.toString());write("socket-phase.txt","DONE");}catch(Throwable e){try{result.put("allPassed",false).put("error",e.toString());write("socket-fixture.json",result.toString());write("socket-phase.txt","FAILED");}catch(Exception ignored){}}},"socket-regression").start();
+ }catch(Exception e){throw new RuntimeException(e);}}
+}

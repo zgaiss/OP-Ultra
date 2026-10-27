@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- CH341 USB\VID_1A86&PID_5512&REV_0304 -->
+    <usb-device vendor-id="6790" product-id="21778" />
+    <!-- iPhone identities covered by this vehicle's temporary USB allow patch. -->
+    <usb-device vendor-id="1452" product-id="4776" />
+    <usb-device vendor-id="1452" product-id="4768" />
+</resources>

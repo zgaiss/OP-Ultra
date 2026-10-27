@@ -1,0 +1,20 @@
+package com.heavendoor.ultralab;
+import org.junit.Test;
+import static org.junit.Assert.*;
+
+public class UltraStartupTripTest {
+ @Test public void emptyBoundedSubscriptionIsNotAnIoFailure(){assertTrue(UltraStartupTrip.normalEmptySubscription("OPTRIP3 00000000-0000-0000-0000-000000000001 1161 \n"));for(String s:new String[]{null,"","OPTRIP3 bad 1161","OPTRIP3 00000000-0000-0000-0000-000000000001 0","OPTRIP3 00000000-0000-0000-0000-000000000001 1161 OPTRIP1"})assertFalse(UltraStartupTrip.normalEmptySubscription(s));}
+ @Test public void decimalOdometerRoundingDoesNotRejectPointTwoKm(){UltraStartupTrip.Cache c=new UltraStartupTrip.Cache();c.accept(sample(1161,3,10,1),100);assertNotNull(c.matching(3.2,1000));assertNull(c.matching(3.2001,1000));}
+ private UltraStartupTrip sample(int pid,double km,int min,long ns){return UltraStartupTrip.parse("OPTRIP3 00000000-0000-0000-0000-000000000001 "+pid+" OPTRIP1 "+km+" "+min+".0 "+ns);}
+ @Test public void actualNativeSample(){UltraStartupTrip s=UltraStartupTrip.parse("OPTRIP3 00000000-0000-0000-0000-000000000001 1161 OPTRIP1 1.6000000000000001 10.0 6144218259069\n");assertNotNull(s);assertEquals(10,s.minutes);assertEquals(1.6,s.kilometers,1e-9);assertEquals(1161,s.instrumentPid);}
+ @Test public void keepsConfirmed127Minutes(){assertEquals(127,sample(1161,16.6,127,1).minutes);}
+ @Test public void zeroDurationIsValid(){assertEquals(0,sample(1,0,0,1).minutes);}
+ @Test public void rejectsMissingAndMalformed(){for(String s:new String[]{null,"","OPTRIP3 00000000-0000-0000-0000-000000000001 1161","OPTRIP3 00000000-0000-0000-0000-000000000001 1161 OPTRIP1 1.6 10.0 3 extra","OPTRIP3 00000000-0000-0000-0000-000000000001 a OPTRIP1 1.6 10.0 3","OPTRIP3 00000000-0000-0000-0000-000000000001 1 OPTRIP1 NaN 10 3","OPTRIP3 00000000-0000-0000-0000-000000000001 1 OPTRIP1 1.6 10.5 3","OPTRIP3 00000000-0000-0000-0000-000000000001 1 OPTRIP1 1.6 -1 3","OPTRIP3 00000000-0000-0000-0000-000000000001 1 OPTRIP1 1.6 1 0"})assertNull(s,UltraStartupTrip.parse(s));}
+ @Test public void rejectsOutOfBounds(){assertNull(sample(0,1,1,1));assertNull(sample(4194305,1,1,1));assertNull(sample(1,100000,1,1));assertNull(sample(1,1,10081,1));}
+ @Test public void matchesStartupDistanceNotChargeDistance(){UltraStartupTrip.Cache c=new UltraStartupTrip.Cache();c.accept(sample(1161,1.6,10,1),100);assertNotNull(c.matching(1.6,101));assertNull(c.matching(23.9,101));assertNull(c.matching(Double.NaN,101));assertNull(c.matching(0,101));}
+ @Test public void staleOrFutureReceiptDoesNotDisplay(){UltraStartupTrip.Cache c=new UltraStartupTrip.Cache();c.accept(sample(1161,1.6,10,1),100);assertNotNull(c.matching(1.6,100+UltraStartupTrip.TTL_MS));assertNull(c.matching(1.6,101+UltraStartupTrip.TTL_MS));assertNull(c.matching(1.6,99));}
+ @Test public void duplicateOrOlderEventNeverRefreshesAge(){UltraStartupTrip.Cache c=new UltraStartupTrip.Cache();c.accept(sample(1161,1.6,10,10),100);assertFalse(c.accept(sample(1161,1.6,10,10),3000));assertFalse(c.accept(sample(1161,1.6,9,9),3001));assertNull(c.matching(1.6,101+UltraStartupTrip.TTL_MS));}
+ @Test public void normalFourKindRotationDoesNotBlink(){UltraStartupTrip.Cache c=new UltraStartupTrip.Cache();c.accept(sample(1161,1.6,10,10),100);assertNotNull(c.matching(1.6,4500));assertNotNull(c.matching(1.7,6500));assertNull(c.matching(3,6500));assertTrue(c.accept(sample(1161,1.7,10,11),6600));assertNotNull(c.matching(1.7,10000));}
+ @Test public void freshEventUpdatesAndNewInstrumentPidCanResetClock(){UltraStartupTrip.Cache c=new UltraStartupTrip.Cache();c.accept(sample(1161,1.6,10,10),100);assertTrue(c.accept(sample(1161,1.6,11,11),3000));assertEquals(11,c.matching(1.6,3001).minutes);assertTrue(c.accept(sample(1200,0,0,1),3100));assertEquals(0,c.matching(0,3101).minutes);assertNull(c.matching(1.6,3101));}
+ @Test public void instrumentRebootMayReusePidWithoutReusingOldCounter(){UltraStartupTrip.Cache c=new UltraStartupTrip.Cache();c.accept(sample(1161,1.6,10,9000),100);UltraStartupTrip next=UltraStartupTrip.parse("OPTRIP3 00000000-0000-0000-0000-000000000002 1161 OPTRIP1 0 0 1");assertTrue(c.accept(next,200));assertEquals(0,c.matching(0,201).minutes);}
+}

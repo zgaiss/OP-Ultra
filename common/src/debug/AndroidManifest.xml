@@ -1,0 +1,21 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity android:name="com.shilapi.xcertplay.RecoveryReviewFixtureActivity" android:exported="true" />
+        <activity android:name="com.shilapi.xcertplay.UltraPerfFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="com.shilapi.xcertplay.UltraReviewFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="com.shilapi.xcertplay.UltraSettingsFixtureActivity" android:exported="true" android:launchMode="singleTask" android:screenOrientation="landscape" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="com.shilapi.xcertplay.UltraRepairFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="com.shilapi.xcertplay.UltraServiceFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="com.shilapi.xcertplay.UltraSocketFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="com.shilapi.xcertplay.UltraBehaviorFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="com.shilapi.xcertplay.UltraVisualFixtureActivity" android:exported="true" android:screenOrientation="landscape" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="com.shilapi.xcertplay.PerformanceLifecycleFixtureActivity"
+            android:exported="true" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="com.shilapi.xcertplay.ClusterCodecFixtureActivity"
+            android:exported="true" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="com.shilapi.xcertplay.ClusterExportFixtureActivity"
+            android:exported="true" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="com.shilapi.xcertplay.InstrumentHeadlessFixtureActivity"
+            android:exported="true" android:theme="@android:style/Theme.Material.NoActionBar" />
+    </application>
+</manifest>
