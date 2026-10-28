@@ -12,3 +12,7 @@ OP Ultra 基于 OP CarPlay 与 xcertplay，加入老 P7 的车况读取、宽幅
 公开源码与对应发行物应提供完整许可证。第三方商标、地图内容、封面、字体及原厂图片的权利属于各自权利人；GPL 代码许可不自动授予它们的再分发权。
 
 个人研究部署中的认证材料、私钥、原车固件和原始采集数据不属于拟公开发布内容。
+
+## 仪表提示字形
+
+提示用到的 Noto Sans CJK 字形数据按 SIL Open Font License1.1 分发，不随项目代码改为 GPL 授权。版权通知与完整许可证位于 `third_party/noto-cjk/`，并随 APK 放在 `assets/licenses/`。

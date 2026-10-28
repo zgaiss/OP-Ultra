@@ -25,7 +25,7 @@ def main():
     if len(builtins)!=1: ap.error('ARM compiler builtins missing or ambiguous')
     output=ROOT/'build/instrument-native'; output.mkdir(parents=True,exist_ok=True)
     base=[str(cc),'-O3','-DNDEBUG','-fno-strict-aliasing','-fno-builtin','-fno-stack-protector','-ffreestanding','-ffunction-sections','-fdata-sections','-I'+str(ROOT/'native')]
-    units=['ultra_app_receiver.c','ultra_tile_decode.c','lz4/lz4.c','tinf/tinflate.c','tinf/tinfzlib.c','tinf/adler32.c','ultra_neon.c']
+    units=['ultra_app_receiver.c','ultra_tile_decode.c','lz4/lz4.c','tinf/tinflate.c','tinf/tinfzlib.c','tinf/adler32.c','ultra_neon.c','op_self_popup.c','op_text_alert.c','op_widget_compositor.c','op_alert_source.c','op_alert_source_linux.c','op_widget_present.c']
     objects=[]
     for unit in units:
         obj=output/(Path(unit).stem+'.o')

@@ -5,13 +5,21 @@
 #include <linux/fb.h>
 #include "tinf/tinf.h"
 #include "ultra_tile_decode.h"
+#include "op_widget_compositor.h"
+#include "op_alert_source.h"
+#include "op_widget_present.h"
+/* Explicit candidate adapter for vehicle testing. Runtime statuses, source
+ * identity and complete snapshots gate painting; not a vehicle validation. */
+#ifndef OP_TEXT_ALERT_SOURCE_ENABLED
+#define OP_TEXT_ALERT_SOURCE_ENABLED 1
+#endif
 typedef unsigned int u32;
 typedef unsigned short u16;
 typedef unsigned char u8;
 typedef unsigned long usize;
 _Static_assert(sizeof(struct fb_var_screeninfo)==160,"ARM fb var ABI");
 _Static_assert(sizeof(struct fb_fix_screeninfo)==68,"ARM fb fix ABI");
-#define ROOT "/tmp/op-ultra-app-v64perf/"
+#define ROOT "/tmp/op-ultra-v067-comfort/"
 #define ALPHA 0x40084621U
 #define KEY 0x40084622U
 #define GETBLANK 0x8004462bU
@@ -46,7 +54,7 @@ static struct fb_var_screeninfo bgvar;
 static volatile u32 *regs;
 static u8 *backup;
 static int fg=-1,bg=-1;
-static int neon_available,protocol_v3;
+static int neon_available,protocol_v3,protocol_widgets;
 extern void ultra_blend_band_neon(u16*,const u32*,u32,u32,u32);
 extern void ultra_copy_neon(void*,const void*,u32);
 extern void ultra_opaque_neon(u16*,u32);
@@ -55,7 +63,19 @@ static int user_stop(void){int fd=s3(5,(long)ROOT "continuous.stop",0,0);if(fd<0
 static int eqstr(const char*a,const char*b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 static u32 nowms(void){long t[2];if(s3(263,1,(long)t,0)<0)return 0;return (u32)t[0]*1000+(u32)t[1]/1000000;}
 struct address {u16 family,port;u32 ip;u8 zero[8];};
-static int ready(int fd,int event,int ms){struct {int fd;short events,revents;} p={fd,(short)event,0};long r=s3(168,(long)&p,1,ms);return r>0&&(p.revents&event);}
+static NwState widgets;
+static Nwp presenter;
+static int self_published;
+static void barrier(void);
+static void self_tick(void){if(OP_TEXT_ALERT_SOURCE_ENABLED)asl_tick(nowms());if(self_published&&nw_needs_draw(&widgets,nowms())){nwp_tick(&presenter,nowms());barrier();}}
+static int ready(int fd,int event,int ms){
+ u32 start=nowms();
+ for(;;){self_tick();u32 age=nowms()-start;if(age>=(u32)ms)return 0;int wait=ms-(int)age;if(self_published)wait=nw_wait_ms(&widgets,nowms(),wait);
+  if(OP_TEXT_ALERT_SOURCE_ENABLED&&wait>50)wait=50;
+  struct {int fd;short events,revents;} p={fd,(short)event,0};long r=s3(168,(long)&p,1,wait);
+  if(r==-4)continue;if(r<0)return 0;if(r>0){if(p.revents&event)return 1;if(p.revents&(8|16|32))return 0;}
+ }
+}
 static int exact(int fd,void*p,u32 n,int sending){u32 used=0;while(used<n){if(!ready(fd,sending?4:1,2000))return 1;long r=s3(sending?4:3,fd,(long)((u8*)p+used),n-used);if(r==-4)continue;if(r<=0)return 1;used+=(u32)r;}return 0;}
 static int capture_channel;
 static int connection(void){
@@ -68,10 +88,10 @@ static int connection(void){
  struct address peer;u32 n=16;int c=s3(285,fd,(long)&peer,(long)&n);s3(6,fd,0,0);
  if(c<0)return -1;
  if(n!=16||peer.ip!=0x2d0114ac){s3(6,c,0,0);text("REFUSED_PEER\n");return -1;}
- static const char expected_token[]="OPULT26-UIFR-001",new_token[]="OPULT26-UIFR-002";
+ static const char expected_token[]="OPULT26-UIFR-001",new_token[]="OPULT26-UIFR-002",widget_token[]="OPULT26-UIFR-003";
  _Static_assert(sizeof(expected_token)==17,"16-byte session token");
  char token[16];if(exact(c,token,16,0)){s3(6,c,0,0);return -1;}
- protocol_v3=equal(token,new_token,16);
+ protocol_widgets=equal(token,widget_token,16);protocol_v3=protocol_widgets||equal(token,new_token,16);
  if(!protocol_v3&&!equal(token,expected_token,16)){s3(6,c,0,0);text("REFUSED_TOKEN\n");return -1;}return c;
 }
 static int capture(int kind){
@@ -200,7 +220,11 @@ static void protect(u8*canvas,const u32*oem){
   for(u32 x=0;x<32;x++){u32 f=ease(x,32);blend_color(p,row+x,left,f,((y&3)<<2)|(x&3));blend_color(p,row+1919-x,right,f,((y&3)<<2)|((1919-x)&3));}
  }
 }
-static int worker(void){
+static int worker_body(void){
+ if(OP_TEXT_ALERT_SOURCE_ENABLED)na_set_copy(copy32);
+ if(nw_init(&widgets,OP_TEXT_ALERT_SOURCE_ENABLED)){text("REFUSED_SELF_POPUP_ATLAS\n");return 3;}
+ if(OP_TEXT_ALERT_SOURCE_ENABLED)asl_start(&widgets.alerts,nowms());
+ text("SELF_RENDERED_POPUPS_READY_NO_OEM_POPUP_PIXELS\n");
  int c=connection();if(c<0)return 3;
  struct fb_var_screeninfo source_v;struct fb_fix_screeninfo source_f;
  if(getmode(bg,&source_v,&source_f)||source_v.xres!=1920||source_v.yres!=720||source_v.bits_per_pixel!=32||source_v.xoffset||source_v.yoffset||source_v.red.offset!=16||source_v.green.offset!=8||source_v.blue.offset||source_f.line_length!=7680||source_f.smem_len<5529600||source_f.smem_len>33554432){text("REFUSED_OEM_READ_GEOMETRY\n");return 3;}
@@ -212,6 +236,8 @@ static int worker(void){
  modeprint(&v,&f);
  if(v.xres!=1920||v.yres!=720||v.xres_virtual!=1920||v.yres_virtual!=720||v.bits_per_pixel!=16||v.xoffset||v.yoffset||f.line_length!=3840||f.smem_len<2764800||f.smem_len>8388608){text("REFUSED_WIDE_GEOMETRY\n");return 4;}
  u8*p=mapping(fg,f.smem_len,3,0);if(!p)return 5;
+ u16*draft=mapping(-1,2764800,3,0);if(!draft)return 5;
+ presenter=(Nwp){&widgets,(u16*)p,draft,(const u16*)canvas,copy32};
  memset(p,0,f.smem_len);memset(canvas,0,2764800);barrier();
  int alpha[2]={1,255},key[2]={1,0};
  if((r=ioc(fg,ALPHA,alpha))<0)return err("FG_ALPHA",r);
@@ -227,10 +253,14 @@ static int worker(void){
  text("EDGE_BLEND_40_REV3_NO_VERTICAL_WASH_TOP_END78\n");
  while(1){
   u32 header[4];if(exact(c,header,16,0)){text("STREAM_ENDED_OR_TIMEOUT\n");break;}
+  if(protocol_widgets&&header[0]==NPC_WIRE_MAGIC){
+   u32 metadata[16];if(header[2]!=NPC_PACKET_BYTES||(messages&&header[1]<=last_seq)||exact(c,metadata,sizeof(metadata),0)||nw_packet(&widgets,metadata,sizeof(metadata),nowms())){text("REFUSED_SELF_POPUP_PACKET\n");failed=1;break;}
+   self_tick();messages++;last_seq=header[1];if(lease)*lease=nowms();u32 ack[2]={header[1],0};if(exact(c,ack,8,1))break;continue;
+  }
   if(header[0]==0x56505032U&&header[2]==0){
    if(messages&&header[1]<=last_seq){text("REFUSED_PAUSE_SEQUENCE\n");failed=1;break;}
    if(!paused){memset(p,0,2764800);barrier();text("CANVAS_PAUSED_NATIVE_VISIBLE\n");pauses++;}
-   paused=1;reference=-1;last_seq=header[1];messages++;if(lease)*lease=nowms();
+   nw_pause(&widgets);self_published=0;paused=1;reference=-1;last_seq=header[1];messages++;if(lease)*lease=nowms();
    if(protocol_v3){u32 ack[2]={header[1],0};if(exact(c,ack,8,1))break;}continue;
   }
   int modern=protocol_v3&&header[0]==0x56504633U;
@@ -251,7 +281,7 @@ static int worker(void){
   u32 inflated=nowms();if(snapshot_bands(oem)){text("OEM_READ_FAILED_RESTORE\n");failed=1;break;}protect(canvas,oem_bands);u32 blended=nowms();
   /* The OEM can repaint or clear fg1 during a mode transition. Keep a full
    * publication here; deltas reduce transport/decoding, not display ownership. */
-  copy32(p,canvas,2764800);
+  nwp_frame(&presenter,nowms());self_published=1;
   barrier();u32 completed=nowms();inflate_total+=inflated-begin;blend_total+=blended-inflated;copy_total+=completed-blended;u32 duration=completed-begin;packed_bytes+=header[2];
   blit_total+=duration;if(duration>blit_max)blit_max=duration;
   if(paused){text("CANVAS_RESUMED\n");paused=0;}messages++;
@@ -262,8 +292,9 @@ static int worker(void){
  ioc(fg,FBIOBLANK,(void*)4);s3(6,c,0,0);
  kv("canvas_pauses=",pauses);kv("frames=",frames);kv("frame_span_ms=",frames?last-first:0);kv("source_elapsed_ms=",source_last);kv("max_gap_ms=",max_gap);kv("gaps_over_50ms=",gaps50);kv("gaps_over_100ms=",gaps100);kv("inflate_total_ms=",inflate_total);kv("blend_total_ms=",blend_total);kv("copy_total_ms=",copy_total);kv("compose_blit_total_ms=",blit_total);kv("compose_blit_max_ms=",blit_max);kv("last_sequence=",last_seq);
  kv("key_frames=",key_frames);kv("delta_frames=",delta_frames);kv("packed_bytes=",packed_bytes);
- unmap(p,f.smem_len);unmap(input,ULTRA_MAX_PACKET);unmap(canvas,2764800);unmap(raw,2764800);text("WORKER_STOPPED\n");return failed?8:0;
+ self_published=0;unmap(draft,2764800);unmap(p,f.smem_len);unmap(input,ULTRA_MAX_PACKET);unmap(canvas,2764800);unmap(raw,2764800);text("WORKER_STOPPED\n");return failed?8:0;
 }
+static int worker(void){int result=worker_body();if(OP_TEXT_ALERT_SOURCE_ENABLED)asl_stop();return result;}
 int run(long*stack){
  long*aux=stack+stack[0]+2;while(*aux)aux++;aux++;
  for(;aux[0];aux+=2)if(aux[0]==16)neon_available=(aux[1]&(1UL<<12))!=0;

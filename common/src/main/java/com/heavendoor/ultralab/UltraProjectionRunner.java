@@ -15,10 +15,11 @@ import java.util.Arrays;
  * No exported command, path, address, SSH credential, or persistent system change.
  */
 final class UltraProjectionRunner implements AutoCloseable {
-    private static final String ROOT="/tmp/op-ultra-app-v64perf/", BIN=ROOT+"receiver";
-    private static final String ASSET_HASH="eca1e864db36bf2f20cbe0f19bce44d45a74f2f843d35139c9457d22cb91773f";
+    private static final String ROOT="/tmp/op-ultra-v067-comfort/", BIN=ROOT+"receiver";
+    private static final String ASSET_HASH="f504a18b7b1628f46de407d8749195a97b284176f255ee2067dd5e79cb86b9a3";
     private final Context context;
     private final int clientUid;
+    private final UltraComfortState comfort;
     private final Object lock=new Object();
     private volatile boolean desired,closed;private volatile int restartTicket;
     private volatile LocalSocket source;
@@ -26,7 +27,8 @@ final class UltraProjectionRunner implements AutoCloseable {
     private volatile long progress;
     private volatile int frameCount;
     private volatile long sourceWaitNanos,receiverNanos;
-    org.json.JSONObject diagnostics(){try{return new org.json.JSONObject().put("frames",frameCount).put("sourceWaitNanos",sourceWaitNanos).put("receiverNanos",receiverNanos);}catch(Exception e){return new org.json.JSONObject();}}
+    private volatile int comfortPackets;
+    org.json.JSONObject diagnostics(){try{return new org.json.JSONObject().put("frames",frameCount).put("sourceWaitNanos",sourceWaitNanos).put("receiverNanos",receiverNanos).put("selfPopupPackets",comfortPackets);}catch(Exception e){return new org.json.JSONObject();}}
     private volatile String state="waiting_for_map", issue="";
     private boolean deployed;
     private volatile boolean receiverOwned;
@@ -34,7 +36,10 @@ final class UltraProjectionRunner implements AutoCloseable {
     private final Thread worker;
 
     UltraProjectionRunner(Context context,int clientUid) {
-        this.context=context;this.clientUid=clientUid;
+        this(context,clientUid,null);
+    }
+    UltraProjectionRunner(Context context,int clientUid,UltraComfortState comfort) {
+        this.context=context;this.clientUid=clientUid;this.comfort=comfort;
         worker=new Thread(this::loop,"ultra-instrument-output");worker.setDaemon(true);worker.start();
         Thread guard=new Thread(()->{while(!closed){SystemClock.sleep(500);if(sink!=null&&SystemClock.elapsedRealtime()-progress>4500)disconnect();}},"ultra-output-lease");
         guard.setDaemon(true);guard.start();
@@ -89,21 +94,30 @@ final class UltraProjectionRunner implements AutoCloseable {
     }
     private void deploy()throws Exception{
         if(deployed)return;
+        if(!rpc("md5sum /app/hmi/bin/ECluster").trim().startsWith("8e79c60c8b497419ad423528c3ef070c "))throw new IOException("alert_firmware_not_matched");
         byte[] bytes;
-        try(InputStream in=context.getAssets().open("ultra/ultra_app_receiver")){ByteArrayOutputStream b=new ByteArrayOutputStream();byte[] buf=new byte[4096];int n;while((n=in.read(buf))>0){b.write(buf,0,n);if(b.size()>65536)throw new IOException("asset_bounds");}bytes=b.toByteArray();}
+        try(InputStream in=context.getAssets().open("ultra/ultra_app_receiver")){ByteArrayOutputStream b=new ByteArrayOutputStream();byte[] buf=new byte[4096];int n;while((n=in.read(buf))>0){b.write(buf,0,n);if(b.size()>524288)throw new IOException("asset_bounds");}bytes=b.toByteArray();}
         StringBuilder hash=new StringBuilder();for(byte b:MessageDigest.getInstance("SHA-256").digest(bytes))hash.append(String.format(java.util.Locale.ROOT,"%02x",b&255));
         if(!ASSET_HASH.equals(hash.toString()))throw new SecurityException("receiver_asset_hash");
         rpc("mkdir -p "+ROOT+"; chmod 700 "+ROOT);
         // Reuse only an exact signed asset. A reboot clears /tmp and redeploys it.
-        String existing=rpc("if [ -f "+BIN+" ]; then base64 "+BIN+"; fi");
-        boolean matches=false;try{matches=Arrays.equals(bytes,Base64.decode(existing,Base64.DEFAULT));}catch(IllegalArgumentException ignored){}
+        boolean matches=receiverMatches(bytes);
         if(!matches){
             String encoded=Base64.encodeToString(bytes,Base64.NO_WRAP);rpc(": > "+ROOT+"next.b64");
             for(int i=0;i<encoded.length();i+=1800){if(!active())throw new InterruptedIOException("cancelled");rpc("printf '%s' '"+encoded.substring(i,Math.min(i+1800,encoded.length()))+"' >> "+ROOT+"next.b64");}
             rpc("base64 -d "+ROOT+"next.b64 > "+ROOT+"receiver.next; chmod 700 "+ROOT+"receiver.next; mv "+ROOT+"receiver.next "+BIN+"; rm -f "+ROOT+"next.b64");
-            if(!Arrays.equals(bytes,Base64.decode(rpc("base64 "+BIN),Base64.DEFAULT)))throw new IOException("receiver_readback_hash");
+            if(!receiverMatches(bytes))throw new IOException("receiver_readback_hash");
         }
         deployed=true;
+    }
+    private boolean receiverMatches(byte[] expected)throws IOException{
+        String length=rpc("if [ -f "+BIN+" ]; then wc -c < "+BIN+"; fi").trim();
+        if(!Integer.toString(expected.length).equals(length))return false;
+        // Bounded readback: each response stays below the original 64 KiB cap.
+        for(int off=0;off<expected.length;off+=12288){
+            byte[] part;try{part=Base64.decode(rpc("dd if="+BIN+" bs=12288 skip="+(off/12288)+" count=1 2>/dev/null | base64"),Base64.DEFAULT);}catch(IllegalArgumentException e){return false;}
+            int n=Math.min(12288,expected.length-off);if(part.length!=n)return false;for(int k=0;k<n;k++)if(part[k]!=expected[off+k])return false;
+        }return true;
     }
     private void stream()throws Exception{
         progress=SystemClock.elapsedRealtime();
@@ -114,8 +128,9 @@ final class UltraProjectionRunner implements AutoCloseable {
         request.writeInt(0x4f505531);request.flush();if(reply.readInt()!=0x4f505531)throw new IOException("canvas_handshake");
         if(!active())return;
         Socket receiver=new Socket();sink=receiver;receiver.setTcpNoDelay(true);receiver.setSendBufferSize(131072);receiver.bind(new InetSocketAddress("172.20.1.45",0));receiver.connect(new InetSocketAddress("172.20.1.40",49173),2000);
-        OutputStream out=receiver.getOutputStream();DataInputStream acknowledgement=new DataInputStream(receiver.getInputStream());out.write("OPULT26-UIFR-002".getBytes(StandardCharsets.US_ASCII));out.flush();
+        OutputStream out=receiver.getOutputStream();DataInputStream acknowledgement=new DataInputStream(receiver.getInputStream());out.write((comfort==null?"OPULT26-UIFR-002":"OPULT26-UIFR-003").getBytes(StandardCharsets.US_ASCII));out.flush();
         byte[] header=new byte[16],frame=new byte[UltraTileCodec.MAX_PACKET];long start=SystemClock.elapsedRealtime();int sentSequence=0,interval=100;boolean forceKey=true,requestPending=false;UltraFrameHealth frameAgeHealth=new UltraFrameHealth();UltraPerformanceBudget budget=new UltraPerformanceBudget();
+        int[] lastComfort=null;
         while(active()){
             long requestedAt=System.nanoTime();if(!requestPending){request.writeInt(5);request.writeInt(interval);request.writeInt(forceKey?1:0);request.flush();}requestPending=false;int seq=reply.readInt();long timestamp=reply.readLong();int width=reply.readInt(),height=reply.readInt(),size=reply.readInt();
             if(seq==UltraFrameHealth.RETRY){
@@ -134,6 +149,11 @@ final class UltraProjectionRunner implements AutoCloseable {
                 int sent=sentSequence++;long tx=SystemClock.elapsedRealtime();writeHeader(out,header,0x56505032,sent,0,(int)(SystemClock.elapsedRealtime()-start));out.flush();interval=ack(acknowledgement,sent,budget,tx);forceKey=true;progress=SystemClock.elapsedRealtime();state="waiting_for_canvas";continue;
             }
             frameAgeHealth.available();sourceWaitNanos+=System.nanoTime()-requestedAt;
+            if(comfort!=null){
+                int[] meta=comfort.packet(SystemClock.elapsedRealtime());boolean changed=lastComfort==null;
+                if(!changed)for(int k=0;k<10;k++)if(meta[k]!=lastComfort[k]){changed=true;break;}
+                if(changed){int sent=sentSequence++;byte[] data=UltraComfortState.bytes(meta);writeHeader(out,header,0x5043504f,sent,data.length,(int)(SystemClock.elapsedRealtime()-start));out.write(data);out.flush();int got=Integer.reverseBytes(acknowledgement.readInt()),ms=Integer.reverseBytes(acknowledgement.readInt());if(got!=sent||ms<0||ms>4500)throw new IOException("comfort_ack");lastComfort=meta;comfortPackets++;}
+            }
             // One bounded look-ahead: prepare the next canvas while this frame
             // is transferred/composed. Publication still waits for its exact ACK;
             // failure closes both sockets and the next connection starts with a key.

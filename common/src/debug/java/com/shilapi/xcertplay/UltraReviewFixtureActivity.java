@@ -12,7 +12,7 @@ public final class UltraReviewFixtureActivity extends Activity {
  @Override public void onCreate(Bundle b){super.onCreate(b);try{
   getSharedPreferences("p7-instrument",0).edit().putBoolean("enabled",true).apply();engine=UltraEngine.get(this);engine.start();
   ServiceConnection old=connection(f("generation").getLong(engine));engine.stop();engine.start();
-  IUltraDataService fake=new IUltraDataService.Stub(){public String snapshot(){return "{\"schema\":1,\"source\":\"vehicle\",\"uid\":2000,\"connected\":false}";}public void setProjectionActive(boolean v){}public void setProjectionMode(int mode){}public void restartProjection(){}public void destroy(){}};
+  IUltraDataService fake=new IUltraDataService.Stub(){public String snapshot(){return "{\"schema\":1,\"source\":\"vehicle\",\"uid\":2000,\"connected\":false}";}public void setProjectionActive(boolean v){}public void setProjectionMode(int mode){}public void setPopupTheme(boolean night){}public void restartProjection(){}public void destroy(){}};
   f("reader").set(engine,fake);old.onServiceConnected(new ComponentName(this,UltraDataService.class),fake.asBinder());
   new Handler(Looper.getMainLooper()).postDelayed(()->{try{
    check("late_old_bind_does_not_replace_reader",f("reader").get(engine)==fake);

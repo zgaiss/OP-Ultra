@@ -1,0 +1,987 @@
+[
+  {
+    "id": "0",
+    "template": "TextReminderSingle-line",
+    "text": "能量回收等级变为低"
+  },
+  {
+    "id": "1",
+    "template": "IconTextReminderMulti-line",
+    "text": "碰撞后已切断动力，请联系维修"
+  },
+  {
+    "id": "2",
+    "template": "TextReminderSingle-line",
+    "text": "动力已就绪"
+  },
+  {
+    "id": "3",
+    "template": "IconTextReminderSingle-line",
+    "text": "驻车力不足，请在平地停车"
+  },
+  {
+    "id": "4",
+    "template": "IconTextReminderSingle-line",
+    "text": "动态制动中"
+  },
+  {
+    "id": "5",
+    "template": "TextReminderSingle-line",
+    "text": "车辆性能受限，请谨慎驾驶"
+  },
+  {
+    "id": "6",
+    "template": "TextReminderSingle-line",
+    "text": "车辆限速，请谨慎驾驶"
+  },
+  {
+    "id": "7",
+    "template": "IconTextReminderSingle-line",
+    "text": "车辆跛行，请联系维修"
+  },
+  {
+    "id": "8",
+    "template": "IconTextReminderMulti-line",
+    "text": "车辆立刻失去动力 ，紧急靠边停车"
+  },
+  {
+    "id": "9",
+    "template": "TextReminderMulti-line",
+    "text": "车辆即将失去动力 ，紧急靠边停车"
+  },
+  {
+    "id": "10",
+    "template": "TextReminderSingle-line",
+    "text": "同时插枪,无法充电"
+  },
+  {
+    "id": "11",
+    "template": "TextReminderSingle-line",
+    "text": "挡位故障，请联系维修"
+  },
+  {
+    "id": "12",
+    "template": "IconTextReminderSingle-line",
+    "text": "请检查安全气囊"
+  },
+  {
+    "id": "13",
+    "template": "TextReminderSingle-line",
+    "text": "请检查左侧转向灯"
+  },
+  {
+    "id": "14",
+    "template": "TextReminderSingle-line",
+    "text": "请检查右侧转向灯"
+  },
+  {
+    "id": "15",
+    "template": "TextReminderSingle-line",
+    "text": "请检查左右侧转向灯"
+  },
+  {
+    "id": "16",
+    "template": "TextReminderSingle-line",
+    "text": "请检查近光灯"
+  },
+  {
+    "id": "17",
+    "template": "TextReminderSingle-line",
+    "text": "车身控制器系统故障"
+  },
+  {
+    "id": "18",
+    "template": "IconTextReminderSingle-line",
+    "text": "请补充制动液"
+  },
+  {
+    "id": "19",
+    "template": "TextReminderSingle-line_Red",
+    "text": "紧急制动辅助已启用"
+  },
+  {
+    "id": "20",
+    "template": "TextReminderSingle-line",
+    "text": "智能助力器故障"
+  },
+  {
+    "id": "21",
+    "template": "TextReminderSingle-line",
+    "text": "轮胎压力过低"
+  },
+  {
+    "id": "22",
+    "template": "TextReminderSingle-line",
+    "text": "轮胎压力过高"
+  },
+  {
+    "id": "23",
+    "template": "TextReminderSingle-line",
+    "text": "轮胎温度过高"
+  },
+  {
+    "id": "24",
+    "template": "IconTextReminderSingle-line",
+    "text": "请检查EPS"
+  },
+  {
+    "id": "25",
+    "template": "TextReminderSingle-line",
+    "text": "因故障无法断开高压"
+  },
+  {
+    "id": "26",
+    "template": "TextReminderSingle-line",
+    "text": "主动格栅故障"
+  },
+  {
+    "id": "27",
+    "template": "IconTextReminderSingle-line",
+    "text": "蓄电池电流传感器故障"
+  },
+  {
+    "id": "28",
+    "template": "IconTextReminderSingle-line",
+    "text": "低压蓄电池电压过低"
+  },
+  {
+    "id": "29",
+    "template": "TextReminderSingle-line",
+    "text": "左前车门未关"
+  },
+  {
+    "id": "30",
+    "template": "TextReminderSingle-line",
+    "text": "右前车门未关"
+  },
+  {
+    "id": "31",
+    "template": "TextReminderSingle-line",
+    "text": "左后车门未关"
+  },
+  {
+    "id": "32",
+    "template": "TextReminderSingle-line",
+    "text": "右后车门未关"
+  },
+  {
+    "id": "33",
+    "template": "IconTextReminderSingle-line",
+    "text": "请系好驾驶员安全带"
+  },
+  {
+    "id": "34",
+    "template": "TextReminderSingle-line",
+    "text": "请乘客系好安全带"
+  },
+  {
+    "id": "35",
+    "template": "TextReminderSingle-line",
+    "text": "电源分配故障"
+  },
+  {
+    "id": "36",
+    "template": "TextReminderMulti-line",
+    "text": "插枪连接状态，无法切换挡位"
+  },
+  {
+    "id": "37",
+    "template": "TextReminderSingle-line",
+    "text": "请先踩刹车，再切换挡位"
+  },
+  {
+    "id": "38",
+    "template": "TextReminderSingle-line",
+    "text": "请先减速，再切换挡位"
+  },
+  {
+    "id": "39",
+    "template": "TextReminderSingle-line",
+    "text": "未检测到钥匙"
+  },
+  {
+    "id": "40",
+    "template": "TextReminderSingle-line",
+    "text": "钥匙在车内"
+  },
+  {
+    "id": "41",
+    "template": "TextReminderSingle-line",
+    "text": "请更换钥匙电池"
+  },
+  {
+    "id": "42",
+    "template": "TextReminderSingle-line",
+    "text": "请踩刹车释放电子驻车"
+  },
+  {
+    "id": "43",
+    "template": "TextReminderSingle-line_ADAS_Red",
+    "text": "紧急制动辅助已启用"
+  },
+  {
+    "id": "44",
+    "template": "TextReminderSingle-line_ADAS_Red",
+    "text": "自动紧急制动已启用"
+  },
+  {
+    "id": "45",
+    "template": "IconTextReminderSingle-line",
+    "text": "AutoHold功能已启用"
+  },
+  {
+    "id": "46",
+    "template": "TextReminderMulti-line_ADAS_Red",
+    "text": "前向碰撞预防功能故障\n请小心驾驶"
+  },
+  {
+    "id": "47",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "车道偏离预警功能故障"
+  },
+  {
+    "id": "48",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶ACC无法激活\n电子手刹激活"
+  },
+  {
+    "id": "49",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "由于长时间未接管车辆\n本次驾驶周期不可用"
+  },
+  {
+    "id": "50",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "请关注前车状态\n合理控制车速"
+  },
+  {
+    "id": "51",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "智能辅助变道功能故障"
+  },
+  {
+    "id": "52",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶ACC无法激活\n安全带未系"
+  },
+  {
+    "id": "53",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶ACC无法激活\n车门未关"
+  },
+  {
+    "id": "54",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶ACC无法激活\n不在D挡"
+  },
+  {
+    "id": "55",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "辅助驾驶ACC已退出"
+  },
+  {
+    "id": "56",
+    "template": "TextReminderSingle-line_ADAS_Red",
+    "text": "辅助驾驶ACC被动退出"
+  },
+  {
+    "id": "57",
+    "template": "TextReminderSingle-line_ADAS_Red",
+    "text": "危险，请踩刹车接管"
+  },
+  {
+    "id": "58",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "辅助驾驶LCC无法激活"
+  },
+  {
+    "id": "59",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "辅助驾驶LCC已退出"
+  },
+  {
+    "id": "60",
+    "template": "IconTextReminderSingle-line_ADAS_Red",
+    "text": "请立即接管车辆"
+  },
+  {
+    "id": "61",
+    "template": "IconTextReminderMulti-line_ADAS",
+    "text": "请轻转方向盘\n或按左侧中键"
+  },
+  {
+    "id": "62",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "智能限速调节本次巡航退出"
+  },
+  {
+    "id": "63",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "智能限速调节功能不可用"
+  },
+  {
+    "id": "64",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "交通标志识别功能不可用"
+  },
+  {
+    "id": "65",
+    "template": "TextReminderMulti-line",
+    "text": "电池即将耗尽，请控制好车速，谨慎驾驶"
+  },
+  {
+    "id": "66",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "智能辅助泊车进行中"
+  },
+  {
+    "id": "67",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "智能辅助泊车暂停"
+  },
+  {
+    "id": "68",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "智能辅助泊车取消"
+  },
+  {
+    "id": "69",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "智能辅助泊车完成"
+  },
+  {
+    "id": "70",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "智能辅助泊出中"
+  },
+  {
+    "id": "71",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "智能辅助泊出已暂停"
+  },
+  {
+    "id": "72",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "智能辅助泊出已取消"
+  },
+  {
+    "id": "73",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "智能辅助泊出已完成"
+  },
+  {
+    "id": "74",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "召唤中"
+  },
+  {
+    "id": "75",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "召唤暂停"
+  },
+  {
+    "id": "76",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "召唤已结束"
+  },
+  {
+    "id": "77",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "正在识别车位，请降低车速"
+  },
+  {
+    "id": "78",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "车位识别中"
+  },
+  {
+    "id": "79",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "请挂R挡进行智能辅助泊车"
+  },
+  {
+    "id": "80",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶LCC无法激活\n雨刷启动"
+  },
+  {
+    "id": "81",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶LCC无法激活\n处于急转弯道"
+  },
+  {
+    "id": "82",
+    "template": "TextReminderMulti-line",
+    "text": "车门保护中，手动关闭车门可解除保护"
+  },
+  {
+    "id": "83",
+    "template": "TextReminderSingle-line",
+    "text": "请关上车门，系好安全带"
+  },
+  {
+    "id": "84",
+    "template": "TextReminderMulti-line",
+    "text": "车辆行驶中，已切换为N挡，请注意安全"
+  },
+  {
+    "id": "85",
+    "template": "TextReminderSingle-line",
+    "text": "续航里程低，请及时充电"
+  },
+  {
+    "id": "86",
+    "template": "TextReminderSingle-line",
+    "text": "请检查后雾灯"
+  },
+  {
+    "id": "87",
+    "template": "IconTextReminderSingle-line",
+    "text": "胎压监测系统故障"
+  },
+  {
+    "id": "88",
+    "template": "IconTextReminderSingle-line",
+    "text": "请检查胎压传感器"
+  },
+  {
+    "id": "89",
+    "template": "TextReminderSingle-line",
+    "text": "TPMS系统校准中"
+  },
+  {
+    "id": "90",
+    "template": "TextReminderSingle-line",
+    "text": "电池温度低，影响充电速度"
+  },
+  {
+    "id": "91",
+    "template": "TextReminderSingle-line",
+    "text": "空调能耗高"
+  },
+  {
+    "id": "92",
+    "template": "TextReminderSingle-line",
+    "text": "前舱盖未关，请及时关闭"
+  },
+  {
+    "id": "93",
+    "template": "TextReminderSingle-line",
+    "text": "电池加热中"
+  },
+  {
+    "id": "94",
+    "template": "TextReminderSingle-line",
+    "text": "电池冷却中"
+  },
+  {
+    "id": "95",
+    "template": "TextReminderSingle-line",
+    "text": "充电速度慢"
+  },
+  {
+    "id": "96",
+    "template": "TextReminderSingle-line",
+    "text": "巡航异常退出"
+  },
+  {
+    "id": "97",
+    "template": "TextReminderSingle-line",
+    "text": "请确认拔枪后再驾驶"
+  },
+  {
+    "id": "98",
+    "template": "TextReminderSingle-line",
+    "text": "请切换至非P挡释放驻车"
+  },
+  {
+    "id": "99",
+    "template": "TextReminderSingle-line",
+    "text": "请关闭车门"
+  },
+  {
+    "id": "100",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "辅助驾驶ACC无法激活"
+  },
+  {
+    "id": "101",
+    "template": "TextReminderMulti-line",
+    "text": "你已触发紧急下电功能，系统即将下电，请确认"
+  },
+  {
+    "id": "102",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶LCC无法激活\n车道线不清晰"
+  },
+  {
+    "id": "103",
+    "template": "TextReminderSingle-line",
+    "text": "请勿将您的手机遗留在车内"
+  },
+  {
+    "id": "104",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "辅助驾驶LCC已退出"
+  },
+  {
+    "id": "105",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "辅助驾驶LCC故障"
+  },
+  {
+    "id": "106",
+    "template": "TextReminderMulti-line",
+    "text": "充电口温度过高，导致充电停止"
+  },
+  {
+    "id": "107",
+    "template": "TextReminderMulti-line",
+    "text": "热管理系统冷却液温度高请注意"
+  },
+  {
+    "id": "108",
+    "template": "TextReminderSingle-line",
+    "text": "空调系统故障，请联系维修"
+  },
+  {
+    "id": "109",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "变道取消"
+  },
+  {
+    "id": "110",
+    "template": "IconTextReminderMulti-line_ADAS",
+    "text": "请轻转方向盘\n或按左侧中键"
+  },
+  {
+    "id": "111",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "智能远光灯功能故障"
+  },
+  {
+    "id": "112",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "智能辅助泊车功能故障"
+  },
+  {
+    "id": "113",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "两侧及后方主动安全功能故障"
+  },
+  {
+    "id": "114",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "变道完成"
+  },
+  {
+    "id": "115",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "当前不适合变道"
+  },
+  {
+    "id": "116",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "请保持注意力并手握方向盘"
+  },
+  {
+    "id": "117",
+    "template": "AutonomousDriving",
+    "text": "请立即接管车辆"
+  },
+  {
+    "id": "118",
+    "template": "IconTextReminderMulti-line_ADAS",
+    "text": "踩下加速踏板时\n辅助驾驶ACC无法减速"
+  },
+  {
+    "id": "120",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "辅助驾驶ACC故障"
+  },
+  {
+    "id": "121",
+    "template": "TextReminderSingle-line",
+    "text": "后备箱未关闭"
+  },
+  {
+    "id": "122",
+    "template": "TextReminderSingle-line",
+    "text": "该车辆不支持智能放电功能"
+  },
+  {
+    "id": "123",
+    "template": "TextReminderSingle-line",
+    "text": "ABS故障，请小心驾驶"
+  },
+  {
+    "id": "124",
+    "template": "TextReminderSingle-line",
+    "text": "能量回收等级变为高"
+  },
+  {
+    "id": "126",
+    "template": "TextReminderMulti-line",
+    "text": "电量已耗尽，将无法继续行驶"
+  },
+  {
+    "id": "127",
+    "template": "TextReminderMulti-line",
+    "text": "电池温度太低，请充电后重试"
+  },
+  {
+    "id": "128",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "辅助驾驶不可用"
+  },
+  {
+    "id": "129",
+    "template": "AutonomousDriving",
+    "text": "请手握方向盘"
+  },
+  {
+    "id": "130",
+    "template": "TextReminderSingle-line",
+    "text": "智能减震器故障"
+  },
+  {
+    "id": "131",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "左侧开门危险"
+  },
+  {
+    "id": "132",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "右侧开门危险"
+  },
+  {
+    "id": "133",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "前方施工，请注意"
+  },
+  {
+    "id": "134",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "前方施工\n请小心使用辅助驾驶功能"
+  },
+  {
+    "id": "135",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶ACC无法激活\n请行驶至开阔区域"
+  },
+  {
+    "id": "136",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "请踩下加速踏板\n以恢复巡航"
+  },
+  {
+    "id": "137",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "辅助驾驶不可用"
+  },
+  {
+    "id": "138",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "记忆泊车暂不可用"
+  },
+  {
+    "id": "139",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "请降低车速"
+  },
+  {
+    "id": "140",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "请系好安全带"
+  },
+  {
+    "id": "141",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "HDC模式下记忆泊车不可用"
+  },
+  {
+    "id": "142",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "请松开加速踏板"
+  },
+  {
+    "id": "143",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "请松开制动踏板"
+  },
+  {
+    "id": "144",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "请关闭车门"
+  },
+  {
+    "id": "145",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "记忆泊车已激活"
+  },
+  {
+    "id": "146",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "请松开制动踏板"
+  },
+  {
+    "id": "147",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "记忆泊车已退出"
+  },
+  {
+    "id": "148",
+    "template": "IconTextReminderMulti-line_ADAS",
+    "text": "请立即接管\n记忆泊车已退出"
+  },
+  {
+    "id": "150",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "辅助驾驶NGP已开启"
+  },
+  {
+    "id": "151",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "辅助驾驶NGP已退出"
+  },
+  {
+    "id": "153",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "本次变道取消"
+  },
+  {
+    "id": "158",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "智能辅助变道不可用\n不满足车速要求"
+  },
+  {
+    "id": "159",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\n请清洁前向单目摄像头"
+  },
+  {
+    "id": "160",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\n请清洁前向三目摄像头"
+  },
+  {
+    "id": "161",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\n请清洁前向毫米波雷达"
+  },
+  {
+    "id": "162",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "前向单目摄像头过热保护\n请稍后尝试激活"
+  },
+  {
+    "id": "163",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\n请清洁前侧毫米波雷达"
+  },
+  {
+    "id": "164",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\n车身模块异常，请联系售后"
+  },
+  {
+    "id": "165",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\nESP功能受限，请联系售后"
+  },
+  {
+    "id": "166",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\nEPS功能受限，请联系售后"
+  },
+  {
+    "id": "167",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\nEPB功能受限，请联系售后"
+  },
+  {
+    "id": "168",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\nSRS功能受限，请联系售后"
+  },
+  {
+    "id": "169",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\nVCU功能受限，请联系售后"
+  },
+  {
+    "id": "170",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\n请确保轮胎压力正常"
+  },
+  {
+    "id": "171",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\n操作开关异常，请联系售后"
+  },
+  {
+    "id": "172",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\n大屏功能受限，请联系售后"
+  },
+  {
+    "id": "173",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂不可用\n请清洁车身摄像头"
+  },
+  {
+    "id": "174",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "变道功能暂不可用\n请清洁后侧毫米波雷达"
+  },
+  {
+    "id": "175",
+    "template": "IconTextReminderSingle-line_ADAS",
+    "text": "请手动变道"
+  },
+  {
+    "id": "176",
+    "template": "AutonomousDriving",
+    "text": "请接管车辆"
+  },
+  {
+    "id": "177",
+    "template": "IconTextReminderSingle-line_ADAS",
+    "text": "小心急弯"
+  },
+  {
+    "id": "178",
+    "template": "IconTextReminderSingle-line_ADAS",
+    "text": "小心行人"
+  },
+  {
+    "id": "179",
+    "template": "IconTextReminderSingle-line_ADAS",
+    "text": "小心施工"
+  },
+  {
+    "id": "180",
+    "template": "IconTextReminderSingle-line_ADAS_Red",
+    "text": "请保持关注路面"
+  },
+  {
+    "id": "181",
+    "template": "IconTextReminderSingle-line_ADAS_Red",
+    "text": "脱手检测标定中"
+  },
+  {
+    "id": "182",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "后向碰撞预警激活\n正在双闪提示后车"
+  },
+  {
+    "id": "183",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "摄像头过热，请将空调风向调为吹窗模式"
+  },
+  {
+    "id": "184",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "请开启辅助驾驶LCC开关\n在触摸屏操作"
+  },
+  {
+    "id": "185",
+    "template": "IconTextReminderMulti-line_ADAS",
+    "text": "您可能疲劳驾驶\n请轻转方向盘"
+  },
+  {
+    "id": "186",
+    "template": "AutonomousDriving_DSM",
+    "text": "检测到您已疲劳驾驶\n请立即接管车辆"
+  },
+  {
+    "id": "187",
+    "template": "TextReminderMulti-line",
+    "text": "已启用展车模式\n不允许驾驶"
+  },
+  {
+    "id": "188",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "辅助驾驶ACC已激活"
+  },
+  {
+    "id": "189",
+    "template": "TextReminderMulti-line",
+    "text": "电池包不匹配\n请联系售后确认"
+  },
+  {
+    "id": "190",
+    "template": "TextReminderSingle-line",
+    "text": "轮胎压力偏低,请及时补气"
+  },
+  {
+    "id": "191",
+    "template": "TextReminderSingle-line",
+    "text": "轮胎压力过低,请立即补气"
+  },
+  {
+    "id": "192",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "限速辅助功能已退出"
+  },
+  {
+    "id": "193",
+    "template": "IconTextReminderMulti-line_ADAS",
+    "text": "如需执行限速\n请操作拨杆"
+  },
+  {
+    "id": "194",
+    "template": "IconTextReminderSingle-line_ADAS",
+    "text": "限速辅助功能已开启"
+  },
+  {
+    "id": "195",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "脱手检测标定中"
+  },
+  {
+    "id": "196",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "脱手检测标定成功"
+  },
+  {
+    "id": "197",
+    "template": "TextReminderSingle-line_ADAS",
+    "text": "脱手检测标定失败"
+  },
+  {
+    "id": "198",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "辅助驾驶暂时无法激活\n当前路段功能受限"
+  },
+  {
+    "id": "199",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "前向碰撞预防功能受限\n请小心驾驶"
+  },
+  {
+    "id": "200",
+    "template": "TextReminderMulti-line_ADAS",
+    "text": "摄像头遮挡\n前向碰撞预防功能受限"
+  },
+  {
+    "id": "201",
+    "template": "TextReminderSingle-line",
+    "text": "左/右车门锁未锁止"
+  },
+  {
+    "id": "202",
+    "template": "TextReminderMulti-line",
+    "text": "左/右车门锁故障\n请联系维修"
+  },
+  {
+    "id": "203",
+    "template": "TextReminderSingle-line",
+    "text": "正在关门，请注意安全"
+  },
+  {
+    "id": "125",
+    "template": "IconTextReminderMulti-line_125",
+    "text": "电池过温，远离车辆，请联系维修"
+  }
+]

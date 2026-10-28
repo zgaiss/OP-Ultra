@@ -39,7 +39,7 @@ Remove-Item Env:OP_MFI_ASSETS_DIR -ErrorAction SilentlyContinue
 .\gradlew.bat -Pp7Profile=true -Pp7ViewAreas=true :mobile:assembleDebug
 ```
 
-当前包名为 `com.heavendoor.opultra.carplay`，版本名 `0.6.4-ultra-perf`、升级代码 20。自行签名不能覆盖维护者签名的包。
+当前包名为 `com.heavendoor.opultra.carplay`，版本名 `0.6.7`、升级代码 31。自行签名不能覆盖维护者签名的包。
 
 ## 辅助服务的签名校验
 
@@ -71,3 +71,15 @@ git diff --check
 ```
 
 未配置私用认证资产时，相应私有材料测试按条件跳过。测试不代替原车接口、显示恢复、全部告警与长期使用的实车验收。该项目不提供构建、安装或故障排查支持。
+
+## 重新生成提示字形
+
+已生成的提示字形头文件随源码提供，普通构建无需下载字体。若修改文案或排版，使用 Noto Sans CJK SC Regular 和 Python 的 Pillow、NumPy 重新生成：
+
+```bash
+python3 scripts/generate-comfort-atlas.py --font /path/to/NotoSansCJKsc-Regular.otf
+python3 scripts/generate-alert-atlas.py --font /path/to/NotoSansCJKsc-Regular.otf
+python3 scripts/build-instrument-native.py --ndk /path/to/android-ndk
+```
+
+字体来源与校验见 `third_party/noto-cjk/NOTICE.txt`，许可见同目录 `OFL.txt`。两份生成器只操作本地文件，不连接车辆。生成后仍需重新编译 APK；不能只替换源码而继续使用旧 receiver。

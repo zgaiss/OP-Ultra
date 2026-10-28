@@ -16,6 +16,8 @@ public final class UltraDataService extends IUltraDataService.Stub {
  private UltraProjectionRunner projection;
  private UltraOutputRouter outputs;
  private UltraTripReader tripReader;
+ private UltraComfortReader comfort;
+ private volatile boolean comfortActive;private volatile int comfortMode=UltraOutputMode.ULTRA;
  private final Object lock=new Object();
  private final Map<String,JSONObject> values=new LinkedHashMap<>();
  private final ScheduledExecutorService io=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"ultra-car-read");t.setDaemon(true);return t;});
@@ -67,7 +69,8 @@ public final class UltraDataService extends IUltraDataService.Stub {
   StringBuilder hash=new StringBuilder();for(byte b:MessageDigest.getInstance("SHA-256").digest(signs[0].toByteArray()))hash.append(String.format("%02x",b&255));
   if(!SIGNER.equals(hash.toString()))throw new SecurityException();
   if(Build.VERSION.SDK_INT!=28 || !"E28".equals(Build.MODEL)){error="仅支持老P7 E28 / Android 9，当前只能模拟";return;}
-  projection=new UltraProjectionRunner(context,clientUid);
+  comfort=new UltraComfortReader();
+  projection=new UltraProjectionRunner(context,clientUid,comfort.state);
   outputs=new UltraOutputRouter(context,projection);
   tripReader=new UltraTripReader(context);
   io.scheduleWithFixedDelay(this::tick,0,50,TimeUnit.MILLISECONDS);
@@ -129,9 +132,10 @@ public final class UltraDataService extends IUltraDataService.Stub {
    return new JSONObject().put("schema",1).put("source","vehicle").put("uid",android.os.Process.myUid()).put("connected",connected && !closed).put("error",error).put("fields",fields).put("projection",outputs==null?"unsupported":outputs.status()).put("projectionTiming",projection==null?new JSONObject():projection.diagnostics()).toString();
   }catch(Exception e){return "{\"schema\":1,\"source\":\"vehicle\",\"connected\":false,\"error\":\"snapshot_failed\"}";}
  }
- @Override public void setProjectionActive(boolean active){if(Binder.getCallingUid()!=clientUid&&Binder.getCallingUid()!=android.os.Process.myUid())throw new SecurityException();if(outputs!=null)outputs.active(active);}
- @Override public void setProjectionMode(int mode){if(Binder.getCallingUid()!=clientUid&&Binder.getCallingUid()!=android.os.Process.myUid())throw new SecurityException();if(outputs!=null)outputs.mode(mode);}
- void shutdown(){closed=true;if(outputs!=null)outputs.close();if(projection!=null)projection.close();if(tripReader!=null)tripReader.close();io.shutdownNow();}
+ @Override public void setProjectionActive(boolean active){if(Binder.getCallingUid()!=clientUid&&Binder.getCallingUid()!=android.os.Process.myUid())throw new SecurityException();comfortActive=active;if(comfort!=null)comfort.active(active&&comfortMode==UltraOutputMode.ULTRA);if(outputs!=null)outputs.active(active);}
+ @Override public void setProjectionMode(int mode){if(Binder.getCallingUid()!=clientUid&&Binder.getCallingUid()!=android.os.Process.myUid())throw new SecurityException();comfortMode=UltraOutputMode.checked(mode);if(comfort!=null)comfort.active(comfortActive&&comfortMode==UltraOutputMode.ULTRA);if(outputs!=null)outputs.mode(mode);}
+ @Override public void setPopupTheme(boolean night){if(Binder.getCallingUid()!=clientUid&&Binder.getCallingUid()!=android.os.Process.myUid())throw new SecurityException();if(comfort!=null)comfort.state.night(night);}
+ void shutdown(){closed=true;if(outputs!=null)outputs.close();if(projection!=null)projection.close();if(tripReader!=null)tripReader.close();if(comfort!=null)comfort.close();io.shutdownNow();}
  public void restartProjection(){if(Binder.getCallingUid()!=clientUid&&Binder.getCallingUid()!=android.os.Process.myUid())throw new SecurityException();if(outputs!=null)outputs.restart();}
  @Override public void destroy(){int uid=Binder.getCallingUid();if(uid!=clientUid && uid!=android.os.Process.myUid() && uid!=0)throw new SecurityException();shutdown();System.exit(0);}
 }

@@ -9,7 +9,7 @@ import org.json.JSONObject;
 
 /** App-private client of the owner's factory service. Only fixed OP operations are exposed. */
 public final class FactoryRootClient extends IUltraDataService.Stub implements AutoCloseable {
- public static final int MAGIC=0x4f505252,VERSION=20;
+ public static final int MAGIC=0x4f505252,VERSION=31;
  public static final String PACKAGE="com.heavendoor.opultra.carplay";
  private final LocalSocket socket;private final DataInputStream input;private final DataOutputStream output;
  private FactoryRootClient(LocalSocket socket)throws Exception{this.socket=socket;socket.setSoTimeout(2500);if(socket.getPeerCredentials().getUid()!=0)throw new SecurityException("factory_helper_owner");input=new DataInputStream(socket.getInputStream());output=new DataOutputStream(socket.getOutputStream());output.writeInt(MAGIC);output.flush();if(input.readInt()!=MAGIC||input.readInt()!=VERSION)throw new IOException("factory_helper_version");}
@@ -38,6 +38,7 @@ public final class FactoryRootClient extends IUltraDataService.Stub implements A
  public synchronized JSONObject authorizeHotspot()throws Exception{return new JSONObject(text(5));}
  @Override public synchronized void restartProjection()throws RemoteException{try{output.writeInt(3);output.flush();if(input.readInt()!=1)throw new IOException("restart_ack");}catch(Exception e){throw new RemoteException(e.toString());}}
  @Override public synchronized void setProjectionMode(int mode)throws RemoteException{try{UltraOutputMode.checked(mode);output.writeInt(6);output.writeInt(mode);output.flush();if(input.readInt()!=1)throw new IOException("mode_ack");}catch(Exception e){throw new RemoteException(e.toString());}}
+ @Override public synchronized void setPopupTheme(boolean night)throws RemoteException{try{output.writeInt(7);output.writeBoolean(night);output.flush();if(input.readInt()!=1)throw new IOException("theme_ack");}catch(Exception e){throw new RemoteException(e.toString());}}
  private String text(int operation)throws Exception{output.writeInt(operation);output.flush();int size=input.readInt();if(size<2||size>98304)throw new IOException("reply_bounds");byte[] raw=new byte[size];input.readFully(raw);return new String(raw,StandardCharsets.UTF_8);}
  @Override public void destroy(){close();}
  @Override public void close(){try{android.system.Os.shutdown(socket.getFileDescriptor(),android.system.OsConstants.SHUT_RDWR);}catch(Exception ignored){}try{socket.close();}catch(Exception ignored){}}
