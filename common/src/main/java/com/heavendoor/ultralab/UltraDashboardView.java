@@ -18,14 +18,17 @@ import java.util.*;
 public final class UltraDashboardView extends View {
  private final TextPaint paint=new TextPaint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG|Paint.DITHER_FLAG);
  private final Typeface ui,bold,number;
+ private final UltraLyricsState lyrics=new UltraLyricsState();
+ private final UltraMusicCardRenderer musicRenderer;
+ private final Runnable lyricPulse=new Runnable(){public void run(){synchronized(UltraDashboardView.this){if(!lyricUiVisible())return;postInvalidate();scheduleLyrics();}}};
  private final Bitmap[][] digits=new Bitmap[2][10],vehicle=new Bitmap[2][3],gauge=new Bitmap[2][3];
  private final Path path=new Path();private final Matrix plateMatrix=new Matrix();private final Rect src=new Rect();private final RectF dst=new RectF();
  private JSONObject frame=new JSONObject();private RouteGuidanceSummary navigation=new RouteGuidanceSummary();
  private long received,sequence,mapSequence,mapReceived;private volatile long themeTransitionUntil;
  public void beginThemeTransition(){themeTransitionUntil=SystemClock.elapsedRealtime()+6000;}
  public long themeTransitionDeadline(){return themeTransitionUntil;}
- synchronized long captureRevision(){return(sequence<<2)|(mapFresh()?1:0)|(live()?2:0);}
- synchronized boolean captureAnimating(){return previousCard!=card&&SystemClock.elapsedRealtime()-cardChangedAt<CARD_ANIMATION_MS;}
+ synchronized long captureRevision(){long visual=lyrics.visualRevision(SystemClock.elapsedRealtime(),card==2);return((sequence+visual)<<2)|(mapFresh()?1:0)|(live()?2:0);}
+ synchronized boolean captureAnimating(){long now=SystemClock.elapsedRealtime();return(previousCard!=card&&now-cardChangedAt<CARD_ANIMATION_MS)||lyrics.animating(now,card==2);}
  private static final int GLASS_W=160,GLASS_H=60;
  private Bitmap map,glassMap,cover;private Canvas glassCanvas;private final int[] glassPixels=new int[GLASS_W*GLASS_H],glassScratch=new int[GLASS_W*GLASS_H];private int coverTone=0xff263d43;
  private String description="",songTitle="",songArtist="";private long songPosition,songDuration;private boolean songPlaying;
@@ -36,9 +39,10 @@ public final class UltraDashboardView extends View {
 
  public UltraDashboardView(Context context){
   super(context);card=previousCard=UltraPreferences.defaultCard(context);
-  ui=Typeface.create("sans-serif-medium",Typeface.NORMAL);
+  ui=Typeface.create(UltraMusicCardStyle.LYRIC_TYPEFACE_FAMILY,Typeface.NORMAL);
   bold=Typeface.create("sans-serif",Typeface.BOLD);
   number=Typeface.create("sans-serif",Typeface.NORMAL);
+  musicRenderer=new UltraMusicCardRenderer(ui,bold);
   for(int t=0;t<2;t++){String theme=t==0?"day":"night";
    for(int d=0;d<10;d++)digits[t][d]=asset("digit-"+d+"-"+theme+".png");
    String[] cars={"vehicle-body","vehicle-front-closed","vehicle-rear-closed"},powers={"powerframe","powerempty","powerfull"};
@@ -79,12 +83,35 @@ public final class UltraDashboardView extends View {
   }
   if(old!=null&&old!=b)UltraMapBuffers.release(old);postInvalidate();
  }
- public synchronized void media(String title,String artist,long position,long duration,boolean playing){if(songTitle.equals(title)&&songArtist.equals(artist)&&songPosition==Math.max(0,position)&&songDuration==Math.max(0,duration)&&songPlaying==playing)return;sequence++;songTitle=title;songArtist=artist;songPosition=Math.max(0,position);songDuration=Math.max(0,duration);songPlaying=playing;postInvalidate();}
+ public synchronized void media(String title,String artist,long position,long duration,boolean playing){
+  title=title==null?"":title;artist=artist==null?"":artist;
+  if(songTitle.equals(title)&&songArtist.equals(artist)&&songPosition==Math.max(0,position)&&songDuration==Math.max(0,duration)&&songPlaying==playing)return;
+  boolean changed=!songTitle.equals(title)||!songArtist.equals(artist);
+  sequence++;songTitle=title;songArtist=artist;songPosition=Math.max(0,position);songDuration=Math.max(0,duration);songPlaying=playing;
+  // The current CarPlay bridge has metadata, not a lyrics source or stable media ID.
+  // Never invent lyric text or word timing from the song title or total duration.
+  lyrics.updateMedia(title.isEmpty()&&artist.isEmpty()?"":title+"\u0000"+artist,songPosition,songDuration,playing,SystemClock.elapsedRealtime());
+  if(changed)musicRenderer.clear();scheduleLyrics();postInvalidate();
+ }
+ /** Bind future authorized lyric requests to this generation; late results are rejected. */
+ public synchronized long lyricsGeneration(){return lyrics.generation();}
+ /** A future source must call this on a new item/session that happens to share the same metadata. */
+ public synchronized long resetLyrics(){long generation=lyrics.resetLyrics();musicRenderer.clear();sequence++;scheduleLyrics();postInvalidate();return generation;}
+ public synchronized boolean lyrics(long generation,java.util.List<UltraLyricsState.Line> lines){
+  boolean accepted=lyrics.accept(generation,lines,SystemClock.elapsedRealtime());
+  if(accepted){musicRenderer.clear();sequence++;scheduleLyrics();postInvalidate();}return accepted;
+ }
+ private boolean lyricUiVisible(){return card==2&&isAttachedToWindow()&&isShown()&&getWindowVisibility()==VISIBLE;}
+ private void scheduleLyrics(){removeCallbacks(lyricPulse);if(lyricUiVisible()){long delay=lyrics.nextDelayMillis(SystemClock.elapsedRealtime(),true);if(delay>0)postDelayed(lyricPulse,delay);}}
+ @Override protected void onAttachedToWindow(){super.onAttachedToWindow();synchronized(this){scheduleLyrics();}}
+ @Override protected void onDetachedFromWindow(){synchronized(this){removeCallbacks(lyricPulse);lyrics.frame(SystemClock.elapsedRealtime(),false);}super.onDetachedFromWindow();}
+ @Override protected void onVisibilityChanged(View changed,int visibility){super.onVisibilityChanged(changed,visibility);synchronized(this){if(musicRenderer!=null)scheduleLyrics();}}
+ @Override protected void onWindowVisibilityChanged(int visibility){super.onWindowVisibilityChanged(visibility);synchronized(this){if(musicRenderer!=null)scheduleLyrics();}}
  public synchronized void cover(Bitmap value){Bitmap old=cover;cover=value;if(old!=null&&old!=value)old.recycle();coverTone=0xff263d43;if(value!=null&&!value.isRecycled())coverTone=value.getPixel(value.getWidth()/2,value.getHeight()/2);rebuildGlow();sequence++;postInvalidate();}
  public synchronized int currentCard(){return card;}
- public synchronized void selectCard(int id){if(!UltraPreferences.available(id)||id==card)return;previousCard=card;card=id;cardChangedAt=SystemClock.elapsedRealtime();sequence++;postInvalidate();describe();}
+ public synchronized void selectCard(int id){if(!UltraPreferences.available(id)||id==card)return;previousCard=card;card=id;cardChangedAt=SystemClock.elapsedRealtime();lyrics.frame(cardChangedAt,card==2);scheduleLyrics();sequence++;postInvalidate();describe();}
  public synchronized void nextCard(){selectCard(UltraPreferences.adjacentCard(card,1));}
- public synchronized void release(){if(map!=null){UltraMapBuffers.release(map);map=null;}if(glassMap!=null){glassMap.recycle();glassMap=null;}glassCanvas=null;cover(null);for(Bitmap[][] group:new Bitmap[][][]{digits,vehicle,gauge})for(Bitmap[] row:group)for(Bitmap b:row)if(b!=null&&!b.isRecycled())b.recycle();}
+ public synchronized void release(){removeCallbacks(lyricPulse);musicRenderer.clear();lyrics.updateMedia("",0,0,false,SystemClock.elapsedRealtime());if(map!=null){UltraMapBuffers.release(map);map=null;}if(glassMap!=null){glassMap.recycle();glassMap=null;}glassCanvas=null;cover(null);for(Bitmap[][] group:new Bitmap[][][]{digits,vehicle,gauge})for(Bitmap[] row:group)for(Bitmap b:row)if(b!=null&&!b.isRecycled())b.recycle();}
  private boolean mapFresh(){return map!=null&&!map.isRecycled()&&SystemClock.elapsedRealtime()-mapReceived<=2500;}
  private boolean live(){long age=SystemClock.elapsedRealtime()-received;return frame.optInt("schema")==1&&"vehicle".equals(frame.optString("source"))&&(frame.optInt("uid",-1)==0||frame.optInt("uid",-1)==2000)&&frame.optBoolean("connected")&&age>=0&&age<=1500;}
  private JSONObject rawField(String key,long ttl){if(!live())return null;JSONObject fields=frame.optJSONObject("fields"),f=fields==null?null:fields.optJSONObject(key);if(f==null||!"returned".equals(f.optString("state")))return null;long age=f.optLong("ageMs",-1);return age>=0&&age+SystemClock.elapsedRealtime()-received<=ttl?f:null;}
@@ -206,13 +233,10 @@ public final class UltraDashboardView extends View {
  private void metric(Canvas canvas,String label,String value,String unit,float x,float y,float width){metric(canvas,label,value,unit,x,y,width,28);}
  private void metric(Canvas canvas,String label,String value,String unit,float x,float y,float width,float size){text(canvas,label,x,y,17,muted,ui);float rawWidth=measure(value,bold,size),unitWidth=measure(unit,ui,14);float fit=Math.max(18,Math.min(size,(width-unitWidth-6)/Math.max(1,rawWidth)*size));text(canvas,value,x,y+39,fit,ink,bold);float w=measure(value,bold,fit);text(canvas,unit,x+w+6,y+39,14,muted,ui);}
  private void drawCard(Canvas canvas,int type){if(type==2)drawMusic(canvas);else if(type==0)drawVehicle(canvas);else drawEnergy(canvas);}
- private void drawMusic(Canvas canvas){float cx=RIGHT+240,artX=cx-150,artY=TOP+24;round(canvas,artX,artY,artX+300,artY+300,18,alpha(ink,20));
-  if(cover!=null&&!cover.isRecycled()){canvas.save();path.reset();dst.set(artX,artY,artX+300,artY+300);path.addRoundRect(dst,18,18,Path.Direction.CW);canvas.clipPath(path);int side=Math.min(cover.getWidth(),cover.getHeight()),x=(cover.getWidth()-side)/2,y=(cover.getHeight()-side)/2;src.set(x,y,x+side,y+side);resetPaint();canvas.drawBitmap(cover,src,dst,paint);canvas.restore();}
-  else{resetPaint();paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(4);paint.setColor(muted);canvas.drawCircle(cx,artY+150,42,paint);canvas.drawCircle(cx,artY+150,9,paint);paint.setStyle(Paint.Style.FILL);}
-  // Natural OEM glyph spacing; centered artist/title, each with a single-line ellipsis.
-  String primary=songTitle.isEmpty()?(songArtist.isEmpty()?"等待音乐":songArtist):songTitle;String secondary=songTitle.isEmpty()?(songArtist.isEmpty()?"在 iPhone 播放后显示":""):songArtist;
-  centerFitted(canvas,primary,cx,TOP+372,416,30,ink,bold);centerFitted(canvas,secondary,cx,TOP+409,416,24,muted,ui);
-  float start=RIGHT+42,end=RIGHT+438,y=TOP+449;round(canvas,start,y,end,y+3,2,line);if(songDuration>0)round(canvas,start,y,start+(end-start)*Math.min(1f,songPosition/(float)songDuration),y+3,2,accent);text(canvas,time(songPosition),start,TOP+483,17,muted,ui);rightText(canvas,time(songDuration),end,TOP+483,17,muted,ui);
+ private void drawMusic(Canvas canvas){
+  canvas.save();canvas.translate(RIGHT,TOP);
+  musicRenderer.draw(canvas,cover,songTitle,songArtist,songPosition,songDuration,lyrics.frame(SystemClock.elapsedRealtime(),card==2),ink,muted,line,accent);
+  canvas.restore();
  }
  private void drawVehicle(Canvas canvas){text(canvas,"车辆信息",RIGHT+32,TOP+44,19,muted,ui);int t=night?1:0;float carX=RIGHT+110,carY=TOP+106,scale=.565f;bitmap(canvas,vehicle[t][0],carX,carY,460*scale,374*scale);
   // These original closed-door pieces are decorative body detail, not live door-state assertions.
