@@ -39,7 +39,7 @@ public final class UltraDashboardView extends View {
 
  public UltraDashboardView(Context context){
   super(context);card=previousCard=UltraPreferences.defaultCard(context);
-  ui=Typeface.create("sans-serif-medium",Typeface.NORMAL);
+  ui=Typeface.create(UltraMusicCardStyle.LYRIC_TYPEFACE_FAMILY,Typeface.NORMAL);
   bold=Typeface.create("sans-serif",Typeface.BOLD);
   number=Typeface.create("sans-serif",Typeface.NORMAL);
   musicRenderer=new UltraMusicCardRenderer(ui,bold);

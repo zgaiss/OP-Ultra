@@ -5,9 +5,12 @@
 ## 布局
 
 - 卡片仍是 480×512，保留现有玻璃背景、封面色调光晕、日夜配色和左右交换。
-- 封面从 300×300 缩为顶部 88×88，歌名和歌手移到右侧，各自单行省略。
-- 当前歌词为 34 px、最多两行；上下邻句为 22 px、各一行省略。Android `StaticLayout` 处理换行，正文区域裁切，长句不会挤占标题或进度条。
+- 封面从 300×300 缩为顶部 88×88，歌名和歌手移到右侧，各自单行省略；歌名 26 px，歌手 19 px。
+- 当前歌词为 28 px、最多两行；上下邻句为 22 px、各一行省略。歌词始终使用现有 `sans-serif-medium` / `Typeface.NORMAL`，不是粗体；未唱正文使用 70% ink 透明度。Android `StaticLayout` 处理换行，正文区域裁切，长句不会挤占标题或进度条。
+- 去掉多余的“歌词”小标签，保留正文间距、原有换句位置与动效。`UltraMusicCardStyle` 是生产绘制和测试预览共用的唯一几何/字体参数来源，预览不得另设一套字号。
 - 底部保留原有 3 px 进度条和时间。没有封面时绘制小唱片占位，不改变正文空间。
+
+没有加入独立红绿灯/倒计时 UI 或对应 SDK。手机高德在地图视频中自带的信息原样保留，不识别、遮挡或重画它。
 
 ## 真实数据与尚未接通的部分
 
@@ -47,12 +50,26 @@ python3 scripts/check-public-tree.py
 git diff --check
 ```
 
-测试中的原创歌词只在测试源码/离线预览中使用，不接到应用运行路径。离线布局预览用于审查空间、配色与边界，不等同于 Android 截图、已安装 APK、真实歌词服务或实车验收。编译与单元测试也不能替代实际字体渲染、媒体源时序、车内百兆链路、长时温升和恢复验收。
+### 直接执行生产 Canvas 的字体夹具
+
+`UltraMusicCardRenderTest` 使用测试依赖 Robolectric 4.17 / Android API 28 / `GraphicsMode.NATIVE`，直接执行生产 `UltraMusicCardRenderer.draw()` 和 `UltraDashboardView.drawDashboard()`，不是另写一套 UI 模拟图。它检查 28/22 px `StaticLayout`、medium 字体 weight 500 / NORMAL / 非粗体、中文字符可用、两行省略、真实未唱像素 alpha 179（70%）、普通行/逐字时间戳差异、空数据裁切及日夜左右交换。
+
+```bash
+./gradlew -Pp7Profile=true -Pp7ViewAreas=true :common:testDebugUnitTest \
+  --tests 'com.heavendoor.ultralab.UltraMusicCardRenderTest'
+```
+
+PNG 写入 `common/build/reports/lyrics-renderer/`，不随源码提交，也不进入 APK。全景与近景均直接取自真实 Canvas 输出；若添加交付说明，只能放在原像素之外。预览应记录对应 commit/tree 与 Style、Renderer、Dashboard 的源码 SHA256，避免把旧图当成新代码的证明。
+
+`scripts/preview-lyrics-layout.py` 仍可在没有 Android 测试运行时的环境做**离线几何近似检查**。它读取同一个 `UltraMusicCardStyle` 并验证生产代码确实使用这些字段；`scripts/test-preview-lyrics-layout.py` 防止字号、透明度、字体或标签在预览与实现间分叉。该近似绘制不能冒称原生 Canvas 图。
+
+测试中的原创歌词、地图、封面和车况只在测试源码/离线预览中使用，不接到应用运行路径。Robolectric 原生 Canvas 图是 JVM 中的生产绘制测试，不是运行 APK 的设备截图、真实歌词服务或实车验收；车辆系统字体可能仍与测试运行时不同。编译与单元测试也不能替代真实媒体源时序、车内百兆链路、长时温升和恢复验收。
 
 ### 本分支云端检查（2026-10-29）
 
 - JDK 25 / Java 11 API 与字节码：172 项歌词模型断言通过，标准 JUnit suite 复用同一组检查。
-- `:common:testDebugUnitTest`、`:shared:testDebugUnitTest`：535 项测试中 534 通过、1 项私用材料检查按条件跳过，零失败/错误。
+- `:common:testDebugUnitTest`、`:shared:testDebugUnitTest`：544 项测试中 543 通过、1 项私用材料检查按条件跳过，零失败/错误；其中 6 项直接运行原生 Canvas 绘制与像素/字体检查，3 项保护样式层级与边界。
+- 单一参数源预览脚本 11 项回归、25 项离线字界检查通过。交付主图使用原生 Canvas 输出，不以近似脚本图替代。
 - `:mobile:lintRelease`：零错误、7 个既存警告；其中依赖中的宽松 TLS TrustManager 2 项、资源目录 1 项、未用资源 4 项。本次没有修改这些依赖，也不是安全审计通过声明。
 - `:mobile:assembleDebug` 成功，包信息与 v2 APK 签名验证通过。自行 Debug 签名不匹配上游受限服务 pin，不能据此称可直接替换原包或已经适配车辆。
 - 公开树筛查和 `git diff --check` 通过。未改变 native、传输、车型、签名或固件校验。

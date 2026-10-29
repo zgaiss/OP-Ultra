@@ -17,6 +17,8 @@ OP Ultra 基于 OP CarPlay 与 xcertplay，加入老 P7 的车况读取、宽幅
 
 2026-10-29：`zgaiss/OP-Ultra` 分支在 Android 合成层加入小封面、歌词优先布局与有界时间戳呈现模型；保留上游版权及 GPL-3.0 许可。未加入真实歌词获取服务，测试和离线预览使用原创示例，不代表第三方音乐内容的再分发授权。
 
+同日字体修订：歌词改用 28 px medium、邻句 22 px，歌名 26 px，未唱歌词提高到 70% ink 透明度；生产与预览读取同一组样式参数。没有加入独立红绿灯或倒计时功能。
+
 ## 仪表提示字形
 
 提示用到的 Noto Sans CJK 字形数据按 SIL Open Font License1.1 分发，不随项目代码改为 GPL 授权。版权通知与完整许可证位于 `third_party/noto-cjk/`，并随 APK 放在 `assets/licenses/`。

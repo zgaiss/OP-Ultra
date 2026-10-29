@@ -1,5 +1,7 @@
 package com.heavendoor.ultralab;
 
+import static com.heavendoor.ultralab.UltraMusicCardStyle.*;
+
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -17,14 +19,7 @@ import java.util.Map;
 
 /** Music contents only. The dashboard still owns the original glass, theme and side exchange. */
 final class UltraMusicCardRenderer {
-    static final int WIDTH = 480, HEIGHT = 512, INSET = 32, TEXT_WIDTH = 416;
-    static final int COVER_SIZE = 88, COVER_TOP = 24, HEADER_TEXT_X = 142;
-    static final int DIVIDER_Y = 134, LYRIC_TOP = 172, LYRIC_BOTTOM = 414;
-    static final int CURRENT_CENTER_Y = 280, ROW_GAP = 92;
-    static final int CURRENT_SIZE = 34, NEIGHBOR_SIZE = 22, CURRENT_MAX_LINES = 2;
-    static final int PROGRESS_Y = 449, TIME_BASELINE = 483;
-
-    private final Typeface regular, bold;
+    private final Typeface medium, bold;
     private final TextPaint paint = new TextPaint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private final Path clip = new Path();
     private final Path rowClip = new Path();
@@ -38,8 +33,8 @@ final class UltraMusicCardRenderer {
         }
     };
 
-    UltraMusicCardRenderer(Typeface regular, Typeface bold) {
-        this.regular = regular;
+    UltraMusicCardRenderer(Typeface medium, Typeface bold) {
+        this.medium = medium;
         this.bold = bold;
     }
 
@@ -52,22 +47,21 @@ final class UltraMusicCardRenderer {
         drawCover(canvas, cover, ink, muted);
         String primary = title.isEmpty() ? (artist.isEmpty() ? "等待音乐" : artist) : title;
         String secondary = title.isEmpty() ? (artist.isEmpty() ? "在 iPhone 播放后显示" : "") : artist;
-        label(canvas, primary, HEADER_TEXT_X, 58, WIDTH - INSET - HEADER_TEXT_X, 28, ink, bold);
-        label(canvas, secondary, HEADER_TEXT_X, 91, WIDTH - INSET - HEADER_TEXT_X, 19, muted, regular);
-        setPaint(line, 1, regular);
+        label(canvas, primary, HEADER_TEXT_X, TITLE_BASELINE, WIDTH - INSET - HEADER_TEXT_X, TITLE_SIZE, ink, bold);
+        label(canvas, secondary, HEADER_TEXT_X, ARTIST_BASELINE, WIDTH - INSET - HEADER_TEXT_X, ARTIST_SIZE, muted, medium);
+        setPaint(line, 1, medium);
         canvas.drawLine(INSET, DIVIDER_Y, WIDTH - INSET, DIVIDER_Y, paint);
-        label(canvas, "歌词", INSET + 2, 162, TEXT_WIDTH, 15, muted, regular);
 
         canvas.save();
         canvas.clipRect(INSET, LYRIC_TOP, WIDTH - INSET, LYRIC_BOTTOM);
         if (lyrics.lines.isEmpty()) {
             centered(canvas, title.isEmpty() && artist.isEmpty() ? "等待音乐" : "暂无歌词",
                     CURRENT_CENTER_Y - 10, 28, ink, bold);
-            centered(canvas, "当前来源未提供歌词", CURRENT_CENTER_Y + 30, 18, muted, regular);
+            centered(canvas, "当前来源未提供歌词", CURRENT_CENTER_Y + 30, 18, muted, medium);
         } else if (lyrics.currentIndex < 0) {
             int next = lyrics.upcomingIndex;
             String status = next == 0 ? "等待歌词开始" : next == lyrics.lines.size() ? "歌词已结束" : "间奏";
-            centered(canvas, status, CURRENT_CENTER_Y, 26, muted, regular);
+            centered(canvas, status, CURRENT_CENTER_Y, 26, muted, medium);
             lyricRow(canvas, lyrics, next - 1, CURRENT_CENTER_Y - ROW_GAP, 0, 1, ink, muted, accent);
             lyricRow(canvas, lyrics, next, CURRENT_CENTER_Y + ROW_GAP, 0, 1, ink, muted, accent);
         } else {
@@ -94,7 +88,7 @@ final class UltraMusicCardRenderer {
         }
         canvas.restore();
 
-        setPaint(line, 1, regular);
+        setPaint(line, 1, medium);
         bounds.set(42, PROGRESS_Y, WIDTH - 42, PROGRESS_Y + 3);
         canvas.drawRoundRect(bounds, 2, 2, paint);
         if (duration > 0) {
@@ -102,15 +96,15 @@ final class UltraMusicCardRenderer {
             bounds.right = 42 + (WIDTH - 84) * Math.min(1f, Math.max(0, position) / (float) duration);
             canvas.drawRoundRect(bounds, 2, 2, paint);
         }
-        label(canvas, time(position), 42, TIME_BASELINE, 150, 17, muted, regular);
-        setPaint(muted, 17, regular);
+        label(canvas, time(position), 42, TIME_BASELINE, 150, 17, muted, medium);
+        setPaint(muted, 17, medium);
         String end = time(duration);
         canvas.drawText(end, WIDTH - 42 - paint.measureText(end), TIME_BASELINE, paint);
         canvas.restore();
     }
 
     private void drawCover(Canvas canvas, Bitmap cover, int ink, int muted) {
-        setPaint(withOpacity(ink, .08f), 1, regular);
+        setPaint(withOpacity(ink, .08f), 1, medium);
         bounds.set(INSET, COVER_TOP, INSET + COVER_SIZE, COVER_TOP + COVER_SIZE);
         canvas.drawRoundRect(bounds, 12, 12, paint);
         if (cover != null && !cover.isRecycled()) {
@@ -121,11 +115,11 @@ final class UltraMusicCardRenderer {
             int side = Math.min(cover.getWidth(), cover.getHeight());
             int x = (cover.getWidth() - side) / 2, y = (cover.getHeight() - side) / 2;
             source.set(x, y, x + side, y + side);
-            setPaint(ink, 1, regular);
+            setPaint(ink, 1, medium);
             canvas.drawBitmap(cover, source, bounds, paint);
             canvas.restore();
         } else {
-            setPaint(muted, 1, regular);
+            setPaint(muted, 1, medium);
             paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(2);
             canvas.drawCircle(INSET + COVER_SIZE / 2f, COVER_TOP + COVER_SIZE / 2f, 19, paint);
@@ -141,7 +135,7 @@ final class UltraMusicCardRenderer {
         StaticLayout layout = layout(lyric.text, emphasis);
         TextPaint textPaint = layout.getPaint();
         boolean karaoke = emphasis > 0 && index == frame.currentIndex && frame.wordTimed;
-        int base = mix(muted, karaoke ? withOpacity(ink, .42f) : ink, emphasis);
+        int base = mix(muted, karaoke ? withOpacity(ink, UNSUNG_ALPHA_PERCENT / 100f) : ink, emphasis);
         textPaint.setColor(withOpacity(base, opacity));
         canvas.save();
         canvas.translate(INSET, centerY - layout.getHeight() / 2f);
@@ -177,11 +171,11 @@ final class UltraMusicCardRenderer {
         StaticLayout cached = layouts.get(key);
         if (cached != null) return cached;
         TextPaint p = new TextPaint(Paint.ANTI_ALIAS_FLAG);
-        p.setTypeface(emphasized ? bold : regular);
+        p.setTypeface(medium);
         p.setTextSize(size);
         StaticLayout result = StaticLayout.Builder.obtain(text, 0, text.length(), p, TEXT_WIDTH)
                 .setAlignment(Layout.Alignment.ALIGN_CENTER)
-                .setIncludePad(false).setLineSpacing(0, 1.16f)
+                .setIncludePad(false).setLineSpacing(0, LINE_SPACING_MULTIPLIER)
                 .setMaxLines(emphasized ? CURRENT_MAX_LINES : 1)
                 .setEllipsize(TextUtils.TruncateAt.END).setEllipsizedWidth(TEXT_WIDTH).build();
         layouts.put(key, result);

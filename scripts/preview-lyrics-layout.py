@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Offline layout proof, NOT Android Canvas/StaticLayout or a vehicle screenshot.
 
-Reads geometry from UltraMusicCardRenderer.java and uses Pillow/Noto font metrics.
+Reads the production UltraMusicCardStyle.java and verifies its renderer wiring.
+Pillow uses Noto Sans CJK SC Regular as an explicitly approximate substitute for
+Android sans-serif-medium. It is NOT evidence of Android font rasterization.
 Fixtures below are original demonstration text, not a production lyrics source.
 No network access, SDK, vehicle connection, or production assets are needed.
 """
@@ -9,12 +11,16 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "common/src/main/java/com/heavendoor/ultralab/UltraMusicCardRenderer.java"
+STYLE = SOURCE.with_name("UltraMusicCardStyle.java")
+DASHBOARD = SOURCE.with_name("UltraDashboardView.java")
+CAPTION_HEIGHT = 120
 ORIGINAL_LINES = [
     "城市在晨雾中慢慢醒来",
     "让每一束微光\n陪我驶向明亮的远方",
@@ -29,31 +35,85 @@ PALETTE = {
 }
 
 
-def constants():
-    source = SOURCE.read_text()
+def parse_style(source):
+    """Only simple literal constants are accepted: no second copy of style values."""
     values = {}
-    for group in re.findall(r"static final int ([^;]+);", source):
-        values.update({k: int(v) for k, v in re.findall(r"(\w+)\s*=\s*(\d+)", group)})
+    for kind, group in re.findall(r"static final (int|float|String) ([^;]+);", source):
+        for assignment in group.split(","):
+            name, raw = (part.strip() for part in assignment.split("=", 1))
+            assert name not in values, f"Duplicate style parameter: {name}"
+            if kind == "int":
+                assert re.fullmatch(r"\d+", raw), f"Unsupported int style expression: {name}"
+                values[name] = int(raw)
+            elif kind == "float":
+                assert re.fullmatch(r"(?:\d+(?:\.\d+)?|\.\d+)f", raw), f"Unsupported float style expression: {name}"
+                values[name] = float(raw[:-1])
+            else:
+                values[name] = json.loads(raw)
+    return values
+
+
+def validate_source_wiring(values, renderer, dashboard):
+    """Fail closed when a preview parameter is no longer used by production code."""
+    assert "import static com.heavendoor.ultralab.UltraMusicCardStyle.*;" in renderer
+    for name in values:
+        assert not re.search(r"(?:int|float|String)\s+[^;]*\b" + name + r"\s*=", renderer), f"Renderer shadows style: {name}"
+        source = dashboard if name == "LYRIC_TYPEFACE_FAMILY" else renderer
+        assert re.search(r"\b" + name + r"\b", source), f"Unused production style parameter: {name}"
+    compact = re.sub(r"\s+", "", renderer)
+    assert "TITLE_BASELINE,WIDTH-INSET-HEADER_TEXT_X,TITLE_SIZE" in compact
+    assert "ARTIST_BASELINE,WIDTH-INSET-HEADER_TEXT_X,ARTIST_SIZE" in compact
+    assert "withOpacity(ink,UNSUNG_ALPHA_PERCENT/100f)" in compact
+    assert "setLineSpacing(0,LINE_SPACING_MULTIPLIER)" in compact
+    layout = renderer.split("private StaticLayout layout(", 1)[1].split("return result;", 1)[0]
+    assert "p.setTypeface(medium);" in layout and "bold" not in layout, "Lyrics must use medium, never BOLD"
+    assert 'label(canvas,"歌词"' not in compact, "The removed lyrics heading must not reappear"
+    compact_dashboard = re.sub(r"\s+", "", dashboard)
+    assert "ui=Typeface.create(UltraMusicCardStyle.LYRIC_TYPEFACE_FAMILY,Typeface.NORMAL);" in compact_dashboard
+    assert "musicRenderer=newUltraMusicCardRenderer(ui,bold);" in compact_dashboard
+
+
+def constants():
+    values = parse_style(STYLE.read_text())
     required = ["WIDTH", "HEIGHT", "INSET", "TEXT_WIDTH", "COVER_SIZE", "COVER_TOP", "HEADER_TEXT_X",
                 "DIVIDER_Y", "LYRIC_TOP", "LYRIC_BOTTOM", "CURRENT_CENTER_Y", "ROW_GAP", "CURRENT_SIZE",
-                "NEIGHBOR_SIZE", "CURRENT_MAX_LINES", "PROGRESS_Y", "TIME_BASELINE"]
-    assert all(k in values for k in required), "Renderer geometry changed; update this offline proof."
+                "NEIGHBOR_SIZE", "CURRENT_MAX_LINES", "PROGRESS_Y", "TIME_BASELINE", "TITLE_SIZE",
+                "TITLE_BASELINE", "ARTIST_SIZE", "ARTIST_BASELINE", "UNSUNG_ALPHA_PERCENT",
+                "LINE_SPACING_MULTIPLIER", "LYRIC_TYPEFACE_FAMILY"]
+    assert all(k in values for k in required), "Production style changed; update this offline proof."
+    validate_source_wiring(values, SOURCE.read_text(), DASHBOARD.read_text())
     assert values["WIDTH"] == 480 and values["HEIGHT"] == 512
     assert values["COVER_SIZE"] == 88
-    assert values["CURRENT_SIZE"] == 34 and values["NEIGHBOR_SIZE"] == 22
+    assert values["CURRENT_SIZE"] == 28 and values["NEIGHBOR_SIZE"] == 22
+    assert values["TITLE_SIZE"] == 26 and values["UNSUNG_ALPHA_PERCENT"] == 70
+    assert values["LYRIC_TYPEFACE_FAMILY"] == "sans-serif-medium"
     assert values["CURRENT_MAX_LINES"] == 2
     assert values["TEXT_WIDTH"] + 2 * values["INSET"] == values["WIDTH"]
     assert values["COVER_TOP"] + values["COVER_SIZE"] < values["DIVIDER_Y"] < values["LYRIC_TOP"]
     assert values["LYRIC_TOP"] < values["LYRIC_BOTTOM"] < values["PROGRESS_Y"] < values["TIME_BASELINE"] < values["HEIGHT"]
-    return values, hashlib.sha256(source.encode()).hexdigest()
+    return values, hashlib.sha256(SOURCE.read_bytes()).hexdigest()
+
+
+def source_metadata(require_clean=False, expected_commit=None):
+    def git(*args):
+        return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
+    commit, tree, status = git("rev-parse", "HEAD"), git("rev-parse", "HEAD^{tree}"), git("status", "--porcelain")
+    assert not expected_commit or commit == expected_commit, "Requested commit does not match checkout HEAD"
+    assert not require_clean or not status, "Final rendering requires a clean, committed source tree"
+    inputs = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in (STYLE, SOURCE, DASHBOARD, Path(__file__).resolve())}
+    return {"commit": commit, "tree": tree, "working_tree_dirty": bool(status), "working_tree_status": status.splitlines(),
+            "source_inputs_sha256": inputs, "style_sha256": inputs[str(STYLE.relative_to(ROOT))],
+            "renderer_sha256": inputs[str(SOURCE.relative_to(ROOT))]}
 
 
 class Proof:
-    def __init__(self, geometry, regular, bold):
+    def __init__(self, geometry, regular, bold, provenance=None):
         self.g = geometry
         self.paths = regular, bold
         self.fonts = {}
         self.checks = []
+        self.provenance = provenance or source_metadata()
 
     def font(self, size, bold=False):
         key = size, bold
@@ -98,23 +158,26 @@ class Proof:
         emphasis = float(active)
         emphasized = emphasis > .5
         size = int(g["NEIGHBOR_SIZE"] + (g["CURRENT_SIZE"] - g["NEIGHBOR_SIZE"]) * emphasis + .5)
-        rows = self.wrap(text, size, g["TEXT_WIDTH"], g["CURRENT_MAX_LINES"] if emphasized else 1, emphasized)
-        f = self.font(size, emphasized)
+        # Production uses sans-serif-medium for every lyric row, not BOLD. This
+        # fallback deliberately uses Regular and advertises that approximation.
+        rows = self.wrap(text, size, g["TEXT_WIDTH"], g["CURRENT_MAX_LINES"] if emphasized else 1, False)
+        f = self.font(size, False)
         boxes = [f.getbbox(row, anchor="ls") for row in rows]
         top = min(box[1] for box in boxes)
         bottom = max(box[3] for box in boxes)
-        step = size * 1.16
+        step = size * g["LINE_SPACING_MULTIPLIER"]
         height = bottom - top + (len(rows) - 1) * step
         baseline = center_y - height / 2 - top
         draw_layer = Image.new("RGBA", layer.size)
         start = tuple(bytes.fromhex(palette["muted"][1:])) + (255,)
-        target = tuple(bytes.fromhex(palette["ink"][1:])) + ((107,) if emphasis > 0 and highlight is not None else (255,))
+        target_alpha = int(255 * g["UNSUNG_ALPHA_PERCENT"] / 100 + .5) if emphasis > 0 and highlight is not None else 255
+        target = tuple(bytes.fromhex(palette["ink"][1:])) + (target_alpha,)
         color = tuple(round(a + (b - a) * emphasis) for a, b in zip(start, target))
         glyph_bounds = []
         for i, row in enumerate(rows):
             width = f.getlength(row)
             x, y = (g["WIDTH"] - width) / 2, baseline + i * step
-            self.text(draw_layer, row, x, y, size, color, emphasized)
+            self.text(draw_layer, row, x, y, size, color, False)
             glyph_bounds.append((x, y + boxes[i][1], x + width, y + boxes[i][3]))
         if emphasis > 0 and highlight is not None:
             accented = Image.new("RGBA", layer.size)
@@ -124,7 +187,7 @@ class Proof:
                 x, y = (g["WIDTH"] - width) / 2, baseline + i * step
                 row_image = Image.new("RGBA", layer.size)
                 accent = tuple(bytes.fromhex(palette["accent"][1:])) + (round(255 * emphasis),)
-                self.text(row_image, row, x, y, size, accent, emphasized)
+                self.text(row_image, row, x, y, size, accent, False)
                 cut = int(x + min(width, max(0, remaining)))
                 row_image.paste((0, 0, 0, 0), (cut, 0, g["WIDTH"], g["HEIGHT"]))
                 accented.alpha_composite(row_image)
@@ -166,10 +229,10 @@ class Proof:
         if state == "long":
             title = "一首足够长的原创歌名用于确认顶栏不会越界"
             artist = "原创演示歌手与一段足够长的演出者介绍"
-        for label, baseline, size, color, bold in [(title, 58, 28, p["ink"], True), (artist, 91, 19, p["muted"], False)]:
+        for label, baseline, size, color, bold in [(title, g["TITLE_BASELINE"], g["TITLE_SIZE"], p["ink"], True),
+                                                   (artist, g["ARTIST_BASELINE"], g["ARTIST_SIZE"], p["muted"], False)]:
             self.text(image, self.fit(label, size, g["WIDTH"] - g["INSET"] - g["HEADER_TEXT_X"], bold), g["HEADER_TEXT_X"], baseline, size, color, bold)
         d.line((g["INSET"], g["DIVIDER_Y"], g["WIDTH"] - g["INSET"], g["DIVIDER_Y"]), fill=p["line"])
-        self.text(image, "歌词", g["INSET"] + 2, 162, 15, p["muted"])
         lyrics = Image.new("RGBA", image.size)
         if state in ("none", "empty"):
             self.centered(lyrics, "等待音乐" if state == "empty" else "暂无歌词", g["CURRENT_CENTER_Y"] - 10, 28, p["ink"], True)
@@ -215,11 +278,15 @@ class Proof:
         return image
 
     def caption(self, image, title):
-        result = Image.new("RGB", (image.width, image.height + 96), "#0c1218")
+        result = Image.new("RGB", (image.width, image.height + CAPTION_HEIGHT), "#0c1218")
         result.paste(image.convert("RGB"), (0, 0))
         self.text(result, title, 18, image.height + 31, 19, "#dce8ed", True)
-        self.text(result, "测试数据 / 离线源码布局重建", 18, image.height + 58, 15, "#a5b7c3")
-        self.text(result, "原创演示 · 非 APK / 实车截图", 18, image.height + 81, 15, "#a5b7c3")
+        self.text(result, "测试数据 / 离线源码布局重建", 18, image.height + 56, 15, "#a5b7c3")
+        self.text(result, "Regular 近似 medium · 非 Android / 实车截图", 18, image.height + 79, 13, "#a5b7c3")
+        p = self.provenance
+        state = "+dirty" if p["working_tree_dirty"] else ""
+        self.text(result, f"{p['commit'][:8]}{state} · style {p['style_sha256'][:8]} · render {p['renderer_sha256'][:8]}",
+                  18, image.height + 102, 12, "#a5b7c3")
         return result
 
 
@@ -228,9 +295,13 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--font", type=Path, default=Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"))
     parser.add_argument("--bold-font", type=Path, default=Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"))
+    parser.add_argument("--require-clean", action="store_true", help="Refuse final output from an uncommitted tree")
+    parser.add_argument("--expected-commit", help="Require this exact full Git commit for final output")
     args = parser.parse_args()
     g, source_hash = constants()
-    proof = Proof(g, args.font, args.bold_font)
+    provenance = source_metadata(args.require_clean, args.expected_commit)
+    proof = Proof(g, args.font, args.bold_font, provenance)
+    assert proof.font(g["CURRENT_SIZE"]).getname()[1].lower() == "regular", "Fallback lyrics require an honestly labeled Regular font, never Bold"
     args.output.mkdir(parents=True, exist_ok=True)
     cases = [("night", "words", "逐字时间戳 · 当前句双行"), ("day", "words", "日间 · 当前句双行"),
              ("night", "none", "生产默认 · 暂无歌词"), ("day", "empty", "无媒体 / 无封面"),
@@ -243,9 +314,9 @@ def main():
         name = f"lyrics-{theme}-{state}.png"
         image.save(args.output / name)
         tiles.append(image)
-    contact = Image.new("RGB", (g["WIDTH"] * 4, (g["HEIGHT"] + 96) * ((len(cases) + 3) // 4)), "#0c1218")
+    contact = Image.new("RGB", (g["WIDTH"] * 4, (g["HEIGHT"] + CAPTION_HEIGHT) * ((len(cases) + 3) // 4)), "#0c1218")
     for i, tile in enumerate(tiles):
-        contact.paste(tile, ((i % 4) * g["WIDTH"], (i // 4) * (g["HEIGHT"] + 96)))
+        contact.paste(tile, ((i % 4) * g["WIDTH"], (i // 4) * (g["HEIGHT"] + CAPTION_HEIGHT)))
     contact.save(args.output / "lyrics-layout-states.png")
     transitions = []
     for i, t in enumerate((0, .2, .4, .6, .8, 1)):
@@ -253,19 +324,23 @@ def main():
         image = proof.caption(proof.card("night", current=2, previous=1, progress=eased, highlight=.1), f"上滚几何 · {round(t * 520)} ms / 520 ms")
         image.save(args.output / f"lyrics-transition-{i}.png")
         transitions.append(image)
-    contact = Image.new("RGB", (g["WIDTH"] * 3, (g["HEIGHT"] + 96) * 2), "#0c1218")
+    contact = Image.new("RGB", (g["WIDTH"] * 3, (g["HEIGHT"] + CAPTION_HEIGHT) * 2), "#0c1218")
     for i, tile in enumerate(transitions):
-        contact.paste(tile, ((i % 3) * g["WIDTH"], (i // 3) * (g["HEIGHT"] + 96)))
+        contact.paste(tile, ((i % 3) * g["WIDTH"], (i // 3) * (g["HEIGHT"] + CAPTION_HEIGHT)))
     contact.save(args.output / "lyrics-transition-geometry.png")
     long_transitions = Image.new("RGB", contact.size, "#0c1218")
     for i, progress in enumerate((.3, .49, .51, .7, .9, 1)):
         tile = proof.caption(proof.card("night", "long", current=2, previous=1, progress=progress),
                              f"超长句上滚 · emphasis {1 - progress:.2f}")
-        long_transitions.paste(tile, ((i % 3) * g["WIDTH"], (i // 3) * (g["HEIGHT"] + 96)))
+        long_transitions.paste(tile, ((i % 3) * g["WIDTH"], (i // 3) * (g["HEIGHT"] + CAPTION_HEIGHT)))
     long_transitions.save(args.output / "lyrics-long-transition-geometry.png")
-    report = {"source": str(SOURCE.relative_to(ROOT)), "source_sha256": source_hash, "geometry": g,
+    assert provenance == source_metadata(args.require_clean, args.expected_commit), "Source changed during rendering; rerun from one stable checkout"
+    report = {"source": str(SOURCE.relative_to(ROOT)), "source_sha256": source_hash, "style": str(STYLE.relative_to(ROOT)),
+              "provenance": provenance, "geometry": g,
               "static_text_checks": proof.checks, "fixtures_original": True,
-              "limitation": "Pillow layout approximation, not Android Canvas/StaticLayout or vehicle output. Transition sheet tests geometry only, not model clock cadence.",
+              "font": {"production_family": g["LYRIC_TYPEFACE_FAMILY"], "fallback_family": proof.font(g["CURRENT_SIZE"]).getname(),
+                       "fallback_is_approximation": True, "lyrics_bold": False},
+              "limitation": "Pillow/Noto Regular approximates Android sans-serif-medium; NOT an Android Canvas/StaticLayout or vehicle screenshot. Transition sheet tests geometry only, not model clock cadence.",
               "cases": len(cases), "transition_snapshots": len(transitions), "long_transition_snapshots": 6}
     (args.output / "geometry-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     print(f"PASS: source geometry and {len(proof.checks)} static lyric bounds; {len(cases)} states, {len(transitions)} transition snapshots.")
