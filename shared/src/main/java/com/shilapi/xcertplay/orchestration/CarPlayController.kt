@@ -222,6 +222,7 @@ class CarPlayController(
     private val wirelessRestartQueued = AtomicBoolean(false)
     private val displayReconnect = DisplayReconnectState()
     private val nowPlaying = Iap2NowPlayingAccumulator()
+    private val musicSessionLock = Any()
     private val routeGuidance = com.shilapi.xcertplay.iap2.message.RouteGuidanceState()
     private val navigationSourceProbe = if (config.identification.navigationSourceProbe)
         com.shilapi.xcertplay.iap2.message.SecondaryMapNavigationState() else null
@@ -492,30 +493,39 @@ class CarPlayController(
             }
             return
         }
-        if (frame.messageId != NOW_PLAYING_UPDATE) return
+        if (frame.messageId != NOW_PLAYING_UPDATE || activeMediaRemoteSession !== session) return
         try {
-            CarPlayMediaSessionBridge.publish(this, nowPlaying.update(frame))
+            synchronized(musicSessionLock) {
+                if (activeMediaRemoteSession === session) CarPlayMediaSessionBridge.publish(this, nowPlaying.update(frame))
+            }
         } catch (error: RuntimeException) {
             debugLog("Could not decode iAP2 NowPlayingUpdate", error)
         }
     }
 
     private fun activateMediaRemote(session: Iap2Session) {
+        synchronized(musicSessionLock) {
+            if (activeMediaRemoteSession === session) return
+            nowPlaying.reset()
+            activeMediaRemoteSession = session
+            CarPlayMediaSessionBridge.beginMediaSession(this)
+        }
         startFileTransferReceiver(session)
         routeGuidance.attach(session)
         com.shilapi.xcertplay.media.CarPlayRouteGuidanceView.attach(this, routeGuidance)
         navigationSourceProbe?.attach(session)
-        activeMediaRemoteSession = session
-        CarPlayMediaSessionBridge.setControlsAvailable(this, true)
     }
 
     private fun deactivateMediaRemote(session: Iap2Session) {
         stopFileTransferReceiver(session)
-        if (activeMediaRemoteSession !== session) return
+        synchronized(musicSessionLock) {
+            if (activeMediaRemoteSession !== session) return
+            activeMediaRemoteSession = null
+            nowPlaying.reset()
+            CarPlayMediaSessionBridge.endMediaSession(this)
+        }
         routeGuidance.detach(session)
         navigationSourceProbe?.detach(session)
-        activeMediaRemoteSession = null
-        CarPlayMediaSessionBridge.setControlsAvailable(this, false)
     }
 
     private fun startFileTransferReceiver(session: Iap2Session) {
@@ -526,11 +536,13 @@ class CarPlayController(
                 isArtworkCached = { fileTransferId ->
                     CarPlayMediaSessionBridge.hasArtwork(this, fileTransferId)
                 },
+                artworkOwnerEpoch = { fileTransferId -> if (activeMediaRemoteSession === session) CarPlayMediaSessionBridge.artworkEpoch(this, fileTransferId) else -1L },
                 onArtwork = { artwork ->
-                    CarPlayMediaSessionBridge.publishArtwork(
+                    if (activeMediaRemoteSession === session) CarPlayMediaSessionBridge.publishArtwork(
                         this,
                         artwork.fileTransferId,
                         artwork.bytes,
+                        artwork.ownerEpoch,
                     )
                 },
                 onLog = ::debugLog,

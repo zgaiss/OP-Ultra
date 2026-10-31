@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream
 internal data class Iap2TransferredArtwork(
     val fileTransferId: Int,
     val bytes: ByteArray,
+    val ownerEpoch: Long = 0,
 )
 
 /** Receives iAP2 session-12 transfers and acknowledges supported Now Playing artwork. */
@@ -12,6 +13,7 @@ internal class Iap2FileTransferReceiver(
     private val session: Iap2Session,
     private val isArtworkCached: (Int) -> Boolean,
     private val onArtwork: (Iap2TransferredArtwork) -> Unit,
+    private val artworkOwnerEpoch: (Int) -> Long = { 0 },
     private val onLog: (String) -> Unit = {},
 ) : AutoCloseable {
     private val handler = Iap2FileTransferHandler()
@@ -49,7 +51,7 @@ internal class Iap2FileTransferReceiver(
     }
 
     private fun handle(datagram: ByteArray) {
-        val outcome = handler.handle(datagram, isArtworkCached)
+        val outcome = handler.handle(datagram, artworkOwnerEpoch, isArtworkCached)
         outcome.response?.let(::send)
         outcome.artwork?.let { artwork ->
             onArtwork(artwork)
@@ -84,6 +86,7 @@ internal class Iap2FileTransferHandler(
         val expectedBytes: Int,
         val startedMillis: Long,
         val data: ByteArrayOutputStream,
+        val ownerEpoch: Long,
         var receiving: Boolean = false,
     )
 
@@ -91,12 +94,13 @@ internal class Iap2FileTransferHandler(
 
     fun handle(
         datagram: ByteArray,
+        artworkOwnerEpoch: (Int) -> Long = { 0 },
         isArtworkCached: (Int) -> Boolean = { false },
     ): Iap2FileTransferOutcome {
         if (datagram.size < 2) return Iap2FileTransferOutcome()
         val transferId = datagram[0].toInt() and 0xff
         return when (datagram[1].toInt() and 0xff) {
-            DATAGRAM_SETUP -> setup(transferId, datagram, isArtworkCached)
+            DATAGRAM_SETUP -> setup(transferId, datagram, isArtworkCached, artworkOwnerEpoch)
             DATAGRAM_FIRST_DATA -> first(transferId, datagram, 2)
             DATAGRAM_DATA -> append(transferId, datagram, last = false, offset = 2)
             DATAGRAM_LAST_DATA -> append(transferId, datagram, last = true, offset = 2)
@@ -125,6 +129,7 @@ internal class Iap2FileTransferHandler(
         transferId: Int,
         datagram: ByteArray,
         isArtworkCached: (Int) -> Boolean,
+        artworkOwnerEpoch: (Int) -> Long,
     ): Iap2FileTransferOutcome {
         transfers.remove(transferId)
         if (datagram.size < SETUP_BYTES) return failure(transferId)
@@ -143,6 +148,7 @@ internal class Iap2FileTransferHandler(
         }
         transfers[transferId] = Transfer(
             expectedBytes = expectedBytes,
+            ownerEpoch = artworkOwnerEpoch(transferId),
             startedMillis = nowMillis(),
             data = ByteArrayOutputStream(expectedBytes.coerceAtMost(INITIAL_CAPACITY_BYTES)),
         )
@@ -195,7 +201,7 @@ internal class Iap2FileTransferHandler(
         transfers.remove(transferId)
         return Iap2FileTransferOutcome(
             response = command(transferId, DATAGRAM_SUCCESS),
-            artwork = Iap2TransferredArtwork(transferId, transfer.data.toByteArray()),
+            artwork = Iap2TransferredArtwork(transferId, transfer.data.toByteArray(), transfer.ownerEpoch),
         )
     }
 

@@ -81,6 +81,8 @@ public final class UltraLyricsState {
 
     private String trackKey = "";
     private long generation, anchorPosition, anchorNow, duration, revision;
+    private double playbackSpeed = 1;
+    private long validUntil = Long.MAX_VALUE;
     private boolean playing, visible, dirty = true, snap = true;
     private List<Line> lines = Collections.emptyList();
     private Frame cached = new Frame(lines, -1, -1, 0, 1, 0, false, 0, -1, 0);
@@ -132,6 +134,16 @@ public final class UltraLyricsState {
         playing = isPlaying;
     }
 
+    /** Adapter clock: expires even when paused; unknown/future anchors must pass known=false. */
+    public synchronized void updateClock(String key, long position, long durationMs, boolean advances,
+                                         double speed, long expiresAt, boolean known, long now) {
+        boolean speedChanged = playbackSpeed != speed;
+        updateMedia(known ? key : "", position, durationMs, advances, now);
+        if (speedChanged) { anchorPosition = boundedPosition(position, duration); anchorNow = now; dirty = true; snap = true; }
+        playbackSpeed = Double.isFinite(speed) && speed >= 0 && speed <= 4 ? speed : 0;
+        validUntil = expiresAt;
+    }
+
     /**
      * Atomically replace data for the retained generation. null/empty clears valid current data.
      * Invalid, oversized, overlapping, or stale input leaves the existing timeline untouched.
@@ -154,6 +166,7 @@ public final class UltraLyricsState {
      */
     public synchronized Frame frame(long now, boolean isVisible) {
         now = Math.max(0, now);
+        if (now > validUntil && !trackKey.isEmpty()) { updateMedia("", 0, 0, false, now); }
         if (!isVisible) {
             if (visible) { visible = false; resetMotion(); snap = true; }
             return cached;
@@ -220,6 +233,8 @@ public final class UltraLyricsState {
     /** Zero means no lyric wakeup is needed; it never requests more than ten updates per second. */
     public synchronized long nextDelayMillis(long now, boolean isVisible) {
         Frame f = frame(now, isVisible);
+        if (isVisible && !playing && !lines.isEmpty() && validUntil != Long.MAX_VALUE)
+            return Math.max(TRANSITION_INTERVAL_MS, validUntil - Math.max(0, now) + 1);
         if (!isVisible || !playing || lines.isEmpty()
                 || f.positionMs >= lines.get(lines.size() - 1).endMs
                 || duration > 0 && f.positionMs >= duration) return 0;
@@ -227,7 +242,7 @@ public final class UltraLyricsState {
     }
 
     private long positionAt(long now) {
-        long delta = playing ? Math.max(0, now - anchorNow) : 0;
+        long delta = playing ? (long)Math.min(MAX_TIMESTAMP_MS, Math.max(0, now - anchorNow) * playbackSpeed) : 0;
         long position = anchorPosition + Math.min(MAX_TIMESTAMP_MS, delta);
         return boundedPosition(position, duration);
     }
@@ -267,7 +282,7 @@ public final class UltraLyricsState {
                 && a.activeWordProgress == b.activeWordProgress;
     }
 
-    private static boolean valid(List<Line> input) {
+    static boolean valid(List<Line> input) {
         if (input.size() > MAX_LINES) return false;
         long previousEnd = -1;
         int totalChars = 0;

@@ -230,6 +230,49 @@ class Iap2ProtocolTest {
     }
 
     @Test
+    fun sameTitleItemEventsInvalidateIdentityButClockOnlyEventsDoNot() {
+        val accumulator = Iap2NowPlayingAccumulator { 1000L }
+        val item = Iap2Messages.buildRaw(0x5001) { group(0) { string(1, "same title") } }
+        val first = accumulator.update(item)
+        val second = accumulator.update(item)
+        assertTrue(second.itemRevision > first.itemRevision)
+        val clock = accumulator.update(Iap2Messages.buildRaw(0x5001) { group(1) { u32(1, 1000) } })
+        assertEquals(second.itemRevision, clock.itemRevision)
+    }
+
+    @Test
+    fun newItemCannotInheritOldClockUntilElapsedArrives() {
+        val accumulator = Iap2NowPlayingAccumulator { 1000L }
+        val old = accumulator.update(Iap2Messages.buildRaw(0x5001) {
+            group(0) { string(1, "old") }; group(1) { u8(0, 1); u32(1, 9000) }
+        })
+        assertEquals(1000L, old.positionUpdateRealtimeMillis)
+        val next = accumulator.update(Iap2Messages.buildRaw(0x5001) { group(0) { string(1, "same title") } })
+        assertEquals(0L, next.positionUpdateRealtimeMillis); assertEquals(0L, next.elapsedMillis)
+        val statusOnly = accumulator.update(Iap2Messages.buildRaw(0x5001) { group(1) { u8(0, 1) } })
+        assertEquals(0L, statusOnly.positionUpdateRealtimeMillis)
+        val clock = accumulator.update(Iap2Messages.buildRaw(0x5001) { group(1) { u32(1, 30) } })
+        assertEquals(1000L, clock.positionUpdateRealtimeMillis); assertEquals(30L, clock.elapsedMillis)
+        accumulator.reset()
+        val reconnected = accumulator.update(Iap2Messages.buildRaw(0x5001) { group(1) { u8(0, 1) } })
+        assertNull(reconnected.title); assertEquals(0L,reconnected.positionUpdateRealtimeMillis)
+    }
+
+    @Test
+    fun artworkCompletionRetainsSetupOwnerAfterSameIdItemSwitch() {
+        val handler = Iap2FileTransferHandler()
+        var epoch = 10L
+        val setup = byteArrayOf(7, 4, 0,0,0,0,0,0,0,1, 0,2)
+        handler.handle(setup, artworkOwnerEpoch={epoch})
+        epoch = 11L
+        val completed = handler.handle(byteArrayOf(7, 0xc0.toByte(), 1), artworkOwnerEpoch={epoch})
+        assertEquals(10L, completed.artwork!!.ownerEpoch)
+        handler.handle(setup, artworkOwnerEpoch={epoch})
+        val current = handler.handle(byteArrayOf(7, 0xc0.toByte(), 2), artworkOwnerEpoch={epoch})
+        assertEquals(11L, current.artwork!!.ownerEpoch)
+    }
+
+    @Test
     fun nowPlayingUpdateParsesArtworkFileTransferIdentifier() {
         val accumulator = Iap2NowPlayingAccumulator { 0L }
         val withArtwork = accumulator.update(

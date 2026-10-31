@@ -35,6 +35,9 @@ internal object CarPlayMediaSessionBridge {
     private var snapshot = CarPlayMediaSnapshot()
     private var cachedArtwork: CarPlayArtwork? = null
     private var artworkVersion = 0L
+    private var mediaConnected = false
+    private var ultraSession = 0L
+    private var artworkOwnerEpoch = 0L
     private var observer: ((CarPlayMediaSnapshot) -> Unit)? = null
 
     fun attach(
@@ -44,6 +47,9 @@ internal object CarPlayMediaSessionBridge {
     ) {
         val update = synchronized(this) {
             this.owner = owner
+            mediaConnected = false
+            ultraSession++
+            artworkOwnerEpoch++
             this.commandSink = commandSink
             snapshot = CarPlayMediaSnapshot()
             cachedArtwork = null
@@ -60,6 +66,8 @@ internal object CarPlayMediaSessionBridge {
         val update = synchronized(this) {
             if (this.owner !== owner) return
             this.owner = null
+            mediaConnected = false
+            artworkOwnerEpoch++
             commandSink = null
             snapshot = CarPlayMediaSnapshot()
             cachedArtwork = null
@@ -72,10 +80,32 @@ internal object CarPlayMediaSessionBridge {
         )
     }
 
+    /** Controller ownership outlives phone sessions; clear all item state at each boundary. */
+    fun beginMediaSession(owner: Any) = update(owner) {
+        mediaConnected = true
+        ultraSession++
+        artworkOwnerEpoch++
+        artworkVersion++
+        cachedArtwork = null
+        CarPlayMediaSnapshot(controlsAvailable = true)
+    }
+
+    fun endMediaSession(owner: Any) = update(owner) {
+        mediaConnected = false
+        ultraSession++
+        artworkOwnerEpoch++
+        artworkVersion++
+        cachedArtwork = null
+        CarPlayMediaSnapshot()
+    }
+
     fun publish(owner: Any, nowPlaying: Iap2NowPlayingState) = update(owner) {
-        if (it.nowPlaying?.artworkFileTransferId != nowPlaying.artworkFileTransferId) {
+        if (!mediaConnected) return@update it
+        if (it.nowPlaying?.artworkFileTransferId != nowPlaying.artworkFileTransferId ||
+            it.nowPlaying?.itemRevision != nowPlaying.itemRevision || it.nowPlaying?.queueIndex != nowPlaying.queueIndex) {
             cachedArtwork = null
             artworkVersion++
+            artworkOwnerEpoch++
         }
         it.copy(
             nowPlaying = nowPlaying,
@@ -85,8 +115,9 @@ internal object CarPlayMediaSessionBridge {
         )
     }
 
-    fun publishArtwork(owner: Any, fileTransferId: Int, data: ByteArray) = update(owner) {
-        if (it.nowPlaying?.artworkFileTransferId != fileTransferId ||
+    fun publishArtwork(owner: Any, fileTransferId: Int, data: ByteArray, expectedEpoch: Long) = update(owner) {
+        if (!mediaConnected || expectedEpoch < 0 || expectedEpoch != artworkOwnerEpoch ||
+            it.nowPlaying?.artworkFileTransferId != fileTransferId ||
             cachedArtwork?.fileTransferId == fileTransferId
         ) {
             return@update it
@@ -95,6 +126,11 @@ internal object CarPlayMediaSessionBridge {
         cachedArtwork = artwork
         artworkVersion++
         it.copy(artwork = artwork)
+    }
+
+    fun artworkEpoch(owner: Any, fileTransferId: Int): Long = synchronized(this) {
+        if (mediaConnected && this.owner === owner && snapshot.nowPlaying?.artworkFileTransferId == fileTransferId)
+            artworkOwnerEpoch else -1L
     }
 
     fun hasArtwork(owner: Any, fileTransferId: Int): Boolean = synchronized(this) {
@@ -109,7 +145,8 @@ internal object CarPlayMediaSessionBridge {
 
     fun ultraRead():CarPlayNowPlayingSummary = synchronized(this) {
         val text = snapshot.nowPlaying?.ultraSummary(System.nanoTime()/1_000_000L) ?: CarPlayNowPlayingSummary("","",0,0,false)
-        text.copy(artworkKey=artworkVersion, artworkBytes=snapshot.artwork?.data)
+        text.copy(artworkKey=artworkVersion, artworkBytes=snapshot.artwork?.data, sessionId=ultraSession,
+            itemId=snapshot.nowPlaying?.let { "${it.itemRevision}:${it.queueIndex}:${it.appName}" } ?: "", connected=owner!=null && mediaConnected)
     }
 
     fun observe(observer: ((CarPlayMediaSnapshot) -> Unit)?) {

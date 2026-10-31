@@ -19,6 +19,7 @@ public final class UltraDashboardView extends View {
  private final TextPaint paint=new TextPaint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG|Paint.DITHER_FLAG);
  private final Typeface ui,bold,number;
  private final UltraLyricsState lyrics=new UltraLyricsState();
+ private java.util.List<UltraLyricsState.Line> sourceLyrics=java.util.Collections.emptyList();
  private final UltraMusicCardRenderer musicRenderer;
  private final Runnable lyricPulse=new Runnable(){public void run(){synchronized(UltraDashboardView.this){if(!lyricUiVisible())return;postInvalidate();scheduleLyrics();}}};
  private final Bitmap[][] digits=new Bitmap[2][10],vehicle=new Bitmap[2][3],gauge=new Bitmap[2][3];
@@ -93,6 +94,21 @@ public final class UltraDashboardView extends View {
   lyrics.updateMedia(title.isEmpty()&&artist.isEmpty()?"":title+"\u0000"+artist,songPosition,songDuration,playing,SystemClock.elapsedRealtime());
   if(changed)musicRenderer.clear();scheduleLyrics();postInvalidate();
  }
+ /** One atomic source snapshot; title/art/clock/lyrics never borrow from a different player. */
+ public synchronized void media(UltraMusicSources.Snapshot media,long sourceGeneration,long now){
+  if(media==null){sourceLyrics=java.util.Collections.emptyList();media("","",0,0,false);long prior=lyrics.generation();lyrics.updateClock("",0,0,false,0,now,false,now);if(prior!=lyrics.generation()){sequence++;musicRenderer.clear();postInvalidate();}scheduleLyrics();return;}
+  long position=media.positionAt(now);boolean playing=media.advancing(now);
+  boolean changed=!songTitle.equals(media.title)||!songArtist.equals(media.artist)||songPosition!=position||songDuration!=media.durationMs||songPlaying!=playing;
+  songTitle=media.title;songArtist=media.artist;songPosition=position;songDuration=Math.max(0,media.durationMs);songPlaying=playing;
+  long oldGeneration=lyrics.generation();
+  lyrics.updateClock(sourceGeneration+":"+media.identity.key(),position,songDuration,playing,media.speed,
+   media.observedMs>Long.MAX_VALUE-UltraMusicSources.MAX_AGE_MS?Long.MAX_VALUE:media.observedMs+UltraMusicSources.MAX_AGE_MS,media.clockKnown(now),now);
+  boolean reset=oldGeneration!=lyrics.generation();
+  boolean timelineChanged=!sourceLyrics.equals(media.lyrics);sourceLyrics=media.lyrics;
+  // Invalid supplied timelines must clear old lyrics rather than preserve stale text for this item.
+  if(!lyrics.accept(lyrics.generation(),media.lyrics,now))lyrics.accept(lyrics.generation(),java.util.Collections.emptyList(),now);
+  if(changed||reset||timelineChanged){sequence++;musicRenderer.clear();postInvalidate();}scheduleLyrics();
+ }
  /** Bind future authorized lyric requests to this generation; late results are rejected. */
  public synchronized long lyricsGeneration(){return lyrics.generation();}
  /** A future source must call this on a new item/session that happens to share the same metadata. */
@@ -113,8 +129,9 @@ public final class UltraDashboardView extends View {
  public synchronized void nextCard(){selectCard(UltraPreferences.adjacentCard(card,1));}
  public synchronized void release(){removeCallbacks(lyricPulse);musicRenderer.clear();lyrics.updateMedia("",0,0,false,SystemClock.elapsedRealtime());if(map!=null){UltraMapBuffers.release(map);map=null;}if(glassMap!=null){glassMap.recycle();glassMap=null;}glassCanvas=null;cover(null);for(Bitmap[][] group:new Bitmap[][][]{digits,vehicle,gauge})for(Bitmap[] row:group)for(Bitmap b:row)if(b!=null&&!b.isRecycled())b.recycle();}
  private boolean mapFresh(){return map!=null&&!map.isRecycled()&&SystemClock.elapsedRealtime()-mapReceived<=2500;}
- private boolean live(){long age=SystemClock.elapsedRealtime()-received;return frame.optInt("schema")==1&&"vehicle".equals(frame.optString("source"))&&(frame.optInt("uid",-1)==0||frame.optInt("uid",-1)==2000)&&frame.optBoolean("connected")&&age>=0&&age<=1500;}
- private JSONObject rawField(String key,long ttl){if(!live())return null;JSONObject fields=frame.optJSONObject("fields"),f=fields==null?null:fields.optJSONObject(key);if(f==null||!"returned".equals(f.optString("state")))return null;long age=f.optLong("ageMs",-1);return age>=0&&age+SystemClock.elapsedRealtime()-received<=ttl?f:null;}
+ private boolean live(){return UltraVehicleReadiness.live(frame.opt("schema"),frame.opt("source"),frame.opt("uid"),frame.opt("connected"),received,SystemClock.elapsedRealtime());}
+ private JSONObject rawField(String key,long ttl){if(!live())return null;JSONObject fields=frame.optJSONObject("fields"),f=fields==null?null:fields.optJSONObject(key);if(f==null||!"returned".equals(f.opt("state")))return null;return UltraVehicleReadiness.validAge(f.opt("ageMs"),received,SystemClock.elapsedRealtime(),ttl)?f:null;}
+ private UltraVehicleReadiness.Field readinessField(String key){JSONObject fields=frame.optJSONObject("fields"),f=fields==null?null:fields.optJSONObject(key);return f==null?null:new UltraVehicleReadiness.Field(f.opt("state"),f.opt("raw"),f.opt("ageMs"),f.opt("area"),f.opt("valueType"));}
  private Double field(String key,long ttl){JSONObject f=rawField(key,ttl);Object value=f==null?null:f.opt("raw");if(!(value instanceof Number))return null;double n=((Number)value).doubleValue();return Double.isFinite(n)?n:null;}
  private String value(String key,int places){Double n=field(key,"mileage_total_raw".equals(key)?6500:3500);return n==null||n<0||("mileage_total_raw".equals(key)&&n>9999999)||(("trip_since_start_raw".equals(key)||"trip_since_charge_raw".equals(key))&&n>99999)?"—":String.format(Locale.ROOT,"%."+places+"f",n);}
  private String soc(){Double n=field("soc",3000);return n!=null&&n>=0&&n<=100?Math.round(n)+"%":"—";}
@@ -132,7 +149,7 @@ public final class UltraDashboardView extends View {
   return open?"有未关闭项":"已关闭";
  }
  private String temperature(int wheel){JSONObject f=rawField("tpms_temperature_raw",3500);JSONArray a=f==null?null:f.optJSONArray("raw");if(a==null||a.length()!=4)return "—";double n=a.optDouble(wheel,Double.NaN);return Double.isFinite(n)&&n>=-40&&n<=125?Math.round(n)+"°C":"—";}
- public synchronized boolean projectionReady(){Double speed=field("speed_raw",750),g=field("gear",1000);return live()&&mapFresh()&&speed!=null&&speed>=0&&speed<=300&&g!=null&&g>=1&&g<=4&&g==Math.rint(g);}
+ public synchronized boolean projectionReady(){return UltraVehicleReadiness.ready(frame.opt("vehicleContract"),live(),mapFresh(),readinessField("speed_raw"),readinessField("gear"),received,SystemClock.elapsedRealtime());}
  public synchronized boolean parked(){Double n=field("gear",1000);return n!=null&&n==4;}
  public synchronized boolean nightMode(){return night;}
  public synchronized JSONObject display(){try{return new JSONObject().put("source","vehicle").put("valid",live()).put("projectionReady",projectionReady()).put("speedKmh",speedText()).put("soc",soc()).put("range",range()).put("gear",gear()).put("averageConsumption",averageConsumption()).put("sinceChargeKm",value("trip_since_charge_raw",1)).put("tripDurationMinutes",tripMinutes()).put("card",UltraPreferences.CARDS[card]).put("cardIndex",card).put("cardsSwapped",cardsSwapped).put("edgeBlendPercent",40).put("edgeBlendRevision",3).put("verticalColorWash",false).put("oemTopBandHeight",96).put("oemBottomBandHeight",60).put("theme",night?"night":"day").put("themeMode",themeMode).put("mapConnected",mapFresh()).put("mapSequence",mapSequence).put("sequence",sequence).put("srDrawn",false).put("coverAvailable",cover!=null&&!cover.isRecycled()).put("mediaMetadataPresent",!songTitle.isEmpty()).put("mediaPlaying",songPlaying).put("tpmsFL",pressure("tpms_fl_raw")).put("tpmsFR",pressure("tpms_fr_raw")).put("tpmsRL",pressure("tpms_rl_raw")).put("tpmsRR",pressure("tpms_rr_raw")).put("outsideInterface",outsideTemperature()).put("navigationActive",navigation.getActive()).put("destinationAvailable",navigation.getDestinationName()!=null).put("destinationStatus",com.shilapi.xcertplay.media.CarPlayRouteGuidanceView.destinationStatus()).put("remainingDistanceAvailable",navigation.getRemainingMeters()!=null).put("remainingTimeAvailable",navigation.getRemainingSeconds()!=null).put("arrivalAvailable",navigation.getArrivalEpochSeconds()!=null).put("powerHistoryPoints",historySize).put("closures",closureStatus()).put("turnTextAvailable",navigation.getTurnText()!=null).put("turnRoadAvailable",navigation.getTurnRoad()!=null).put("nextTurnAvailable",navigation.getNextTurnMeters()!=null);}catch(Exception ignored){return new JSONObject();}}

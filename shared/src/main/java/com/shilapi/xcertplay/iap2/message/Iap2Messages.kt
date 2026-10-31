@@ -331,6 +331,8 @@ enum class Iap2PlaybackStatus(val wireValue: Int) {
 
 /** Last complete NowPlaying state reconstructed from incremental 0x5001 updates. */
 data class Iap2NowPlayingState(
+    /** Conservative item event identity; repeated metadata events may invalidate lyrics safely. */
+    val itemRevision: Long = 0,
     val title: String? = null,
     val durationMillis: Long? = null,
     val album: String? = null,
@@ -352,6 +354,9 @@ class Iap2NowPlayingAccumulator(
     private var current = Iap2NowPlayingState()
 
     @Synchronized
+    fun reset() { current = Iap2NowPlayingState() }
+
+    @Synchronized
     fun update(frame: Iap2Frame): Iap2NowPlayingState {
         require(frame.messageId == NOW_PLAYING_UPDATE) {
             "Expected NowPlayingUpdate, got 0x${frame.messageId.toString(16)}"
@@ -359,6 +364,9 @@ class Iap2NowPlayingAccumulator(
         val body = Iap2Messages.reader(frame)
         body.optionalGroup(MEDIA_ITEM_ATTRIBUTES)?.let { media ->
             current = current.copy(
+                itemRevision = current.itemRevision + 1,
+                elapsedMillis = 0,
+                positionUpdateRealtimeMillis = 0,
                 title = if (media.has(TITLE)) media.string(TITLE) else current.title,
                 durationMillis = if (media.has(DURATION)) media.u32(DURATION) else current.durationMillis,
                 album = if (media.has(ALBUM)) media.string(ALBUM) else current.album,
@@ -373,7 +381,7 @@ class Iap2NowPlayingAccumulator(
         body.optionalGroup(PLAYBACK_ATTRIBUTES)?.let { playback ->
             val statusChanged = playback.has(PLAYBACK_STATUS)
             val elapsedChanged = playback.has(ELAPSED_TIME)
-            val updateTime = if (statusChanged || elapsedChanged) realtimeMillis() else null
+            val updateTime = if (elapsedChanged || statusChanged && current.positionUpdateRealtimeMillis > 0) realtimeMillis() else null
             val elapsedAtUpdate = if (
                 statusChanged &&
                 !elapsedChanged &&

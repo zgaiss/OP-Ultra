@@ -34,7 +34,7 @@ public final class OwnRootService {
    while(true){LocalSocket c=server.accept();if(c.getPeerCredentials().getUid()!=clientUid&&c.getPeerCredentials().getUid()!=0){c.close();continue;}synchronized(this){if(peers>=3){c.close();continue;}peers++;}new Thread(()->handle(c),"op-root-peer").start();}
   }
  }
- private synchronized UltraDataService reader(LocalSocket owner)throws Exception{if(dataOwner!=null&&dataOwner!=owner)throw new IOException("reader_already_owned");if(data==null)data=new UltraDataService(context);dataOwner=owner;return data;}
+ private synchronized UltraDataService reader(LocalSocket owner)throws Exception{if(dataOwner!=null&&dataOwner!=owner)throw new IOException("reader_already_owned");if(data==null)data=new UltraInstrumentDataService(context);dataOwner=owner;return data;}
  private synchronized void stopData(){UltraDataService old=data;data=null;dataOwner=null;if(old!=null)old.shutdown();}
  private void handle(LocalSocket c){
   try(LocalSocket socket=c){c.setSoTimeout(5000);DataInputStream in=new DataInputStream(c.getInputStream());DataOutputStream out=new DataOutputStream(c.getOutputStream());if(in.readInt()!=FactoryRootClient.MAGIC)return;out.writeInt(FactoryRootClient.MAGIC);out.writeInt(FactoryRootClient.VERSION);out.flush();
